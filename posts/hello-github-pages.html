@@ -2,6 +2,9 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GitHub Pages로 블로그 열기 · beengineer500</title>
     <meta name="post-category" content="setup" />
@@ -14,6 +17,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="/styles.css" as="style" />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 이동</a>
@@ -24,12 +28,18 @@
           <img src="/assets/memo-mark.svg" width="28" height="28" alt="" aria-hidden="true" />
           <span>beengineer500</span>
         </a>
-        <nav class="site-nav" aria-label="주요 메뉴">
-          <a href="/">홈</a>
-          <a href="/posts/">글</a>
-          <a href="/categories/">분류</a>
-          <a href="https://github.com/beengineer500">GitHub</a>
-        </nav>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -49,6 +59,8 @@
             <a href="/tags/static-site.html">static site</a>
           </div>
         </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
 
         <section>
           <h2>왜 별도 저장소로 시작했나</h2>

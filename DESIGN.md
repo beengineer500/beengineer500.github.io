@@ -10,22 +10,26 @@ An engineer's notebook: plain, organized, and built for re-reading. The signatur
 
 | Role | Token | Light | Dark | Usage |
 |------|-------|-------|------|-------|
-| Surface/page | --surface-page | #fbfbfa | #181a19 | Page canvas |
-| Surface/panel | --surface-panel | #ffffff | #202322 | Main reading surface |
-| Surface/muted | --surface-muted | #f5f6f3 | #282c2a | Tags, code, quiet blocks |
-| Text/primary | --text-primary | #202322 | #f5f6f3 | Headings and body |
-| Text/secondary | --text-secondary | #4f5a55 | #b8c0bb | Metadata and descriptions |
-| Text/tertiary | --text-tertiary | #626b66 | #9ca6a0 | Low-priority labels |
-| Border/subtle | --border-subtle | #e2e6e1 | #363d39 | Dividers |
-| Border/strong | --border-strong | #c8d0ca | #606a65 | Focused structural lines |
-| Accent/primary | --accent-primary | #2c6759 | #7fc8b5 | Links and focus |
-| Accent/hover | --accent-hover | #1f4f44 | #a4dfd0 | Link hover |
+| Surface/page | --surface-page | #cdccc5 | #161615 | Page canvas |
+| Surface/panel | --surface-panel | #d7d6cf | #201f1e | Main reading surface |
+| Surface/muted | --surface-muted | #c1c0b8 | #292827 | Tags, code, quiet blocks |
+| Text/primary | --text-primary | #1a1a18 | #ecebe6 | Headings and body |
+| Text/secondary | --text-secondary | #47463f | #b4b3ac | Metadata and descriptions |
+| Text/tertiary | --text-tertiary | #5d5c54 | #8f8e86 | Low-priority labels |
+| Border/subtle | --border-subtle | #b2b1a8 | #33322f | Dividers |
+| Border/strong | --border-strong | #98978e | #55544e | Focused structural lines |
+| Accent/primary | --accent-primary | #1a1a18 | #e6e5df | Links and focus |
+| Accent/hover | --accent-hover | #000000 | #ffffff | Link hover |
+| Accent/warm | --accent-warm | #5d5c54 | #9a998f | Second accent: hover feedback, tag hover, active TOC entry, sketch accent |
+| Accent/warm hover | --accent-warm-hover | #3e3d36 | #c2c1b6 | Warm accent hover/active state |
 
 ### Rules
 
-- Accent is only for links, focus states, and selected metadata.
+- The palette is grayscale "ink on paper" (E-Ink aesthetic): neutral warm-gray paper surfaces, charcoal/off-white ink for text, no saturated hues anywhere.
+- `--accent-primary` and `--accent-warm` are both neutral ink tones, not colors — they exist to carry emphasis (links, focus, hover feedback, active TOC entry, sketch accent), not to add visual color.
 - The page must stay calm: no black ribbons, no gradients, no decorative color blocks.
-- New colors must be added here before use.
+- Dark mode is provided both via `:root[data-theme="dark"]` (manual override, saved to `localStorage`) and `@media (prefers-color-scheme: dark)` (OS default, guarded by `:not([data-theme="light"])` so a manual choice always wins).
+- New colors must be added here before use, and must stay within the grayscale/ink palette.
 
 ## 3. Typography
 
@@ -45,13 +49,14 @@ An engineer's notebook: plain, organized, and built for re-reading. The signatur
 ### Font Stack
 
 - Primary: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", system-ui, sans-serif
-- Mono: "SF Mono", Monaco, Consolas, "Liberation Mono", monospace
+- Mono: "JetBrains Mono", "SF Mono", Monaco, Consolas, "Liberation Mono", monospace (`--font-mono`)
 
 ### Rules
 
 - No display serif for Korean headings.
 - Body width stays near 65 characters.
 - Korean text uses `word-break: keep-all` and `text-wrap: pretty` where supported.
+- JetBrains Mono is self-hosted (`/assets/jetbrains-mono-400.woff2`, `/assets/jetbrains-mono-600.woff2`, `font-display: swap`) and applies only to elements already on the mono stack (eyebrows, dates/status lines, tags, code). All mono-styled copy on this site is Latin/ASCII, so no Korean fallback gap.
 
 ## 4. Spacing & Layout
 
@@ -87,12 +92,21 @@ All spacing derives from 4px.
 ## 5. Components
 
 ### Header
-- **Structure**: skip link, small notebook mark, brand, navigation.
+- **Structure**: skip link, small notebook mark, brand, navigation, theme toggle.
 - **Variants**: inline desktop, wrapped mobile.
 - **Spacing**: `--space-3` to `--space-6`.
 - **States**: link default, hover, focus.
 - **Accessibility**: landmarks, visible focus, sufficient touch targets.
 - **Motion**: color transition only.
+
+### Theme Toggle
+- **Structure**: bordered mono button with a small icon (☀/☾) and a text label; sits at the end of the header nav group.
+- **Variants**: light active, dark active.
+- **Spacing**: `--space-1` by `--space-3`.
+- **States**: default, hover (border and warm-accent text), focus.
+- **Accessibility**: `aria-pressed` reflects dark state, `aria-label` names the action ("다크/라이트 모드로 전환"); never icon-only.
+- **Behavior**: follows OS `prefers-color-scheme` until the user clicks; the choice is saved to `localStorage` and applied via `data-theme` on `<html>`. A tiny inline head script sets `data-theme` before first paint to avoid a flash.
+- **Motion**: color and border transition only.
 
 ### Memo Intro
 - **Structure**: label, title, lead, small status line.
@@ -135,12 +149,28 @@ All spacing derives from 4px.
 - **Motion**: color and border transition only.
 
 ### Article Body
-- **Structure**: title block, prose sections, inline code, code blocks.
+- **Structure**: title block, table of contents, prose sections, inline code, code blocks.
 - **Variants**: regular post and 404 note.
 - **Spacing**: reading width with `--space-6` paragraph rhythm.
 - **States**: link hover and focus.
 - **Accessibility**: semantic headings and readable line length.
 - **Motion**: none.
+
+### Table of Contents
+- **Structure**: bordered muted box under the article header, listing article `h2` headings as an ordered list.
+- **Variants**: only rendered when an article has `h2` sections; hidden (via the `hidden` attribute) until JS builds it, so pages without JS show nothing rather than an empty box.
+- **Spacing**: `--space-4`/`--space-5` padding, `--space-2` list rhythm.
+- **States**: link hover, focus, and the currently-scrolled section marked with `aria-current="true"` in warm accent.
+- **Accessibility**: `<nav aria-label="목차">`; current-section highlighting is a visual aid only, not required for navigation.
+- **Motion**: color transition only; section highlighting uses `IntersectionObserver`, not scroll-linked animation.
+
+### Code Block Copy Button
+- **Structure**: small bordered mono button pinned to the top-right corner of `.article pre`.
+- **Variants**: idle ("복사"), copied feedback ("복사됨", briefly disabled).
+- **Spacing**: `--space-1` by `--space-2`; block padding increases at the top to keep the first code line clear of the button.
+- **States**: default, hover (warm accent text), focus, disabled (post-copy feedback).
+- **Accessibility**: `aria-label="코드 복사"`; button text also changes so the state is not color-only.
+- **Motion**: color and border transition only.
 
 ### Footer
 - **Structure**: quiet divider, identity line, links.
@@ -178,3 +208,14 @@ Tonal-shift plus subtle borders.
 | Strong line | 1px solid var(--border-strong) | Header/footer emphasis |
 
 No shadows, glass, black slabs, or large photographic hero surfaces.
+
+### Texture
+
+A very quiet notebook texture, applied consistently to both themes. The page canvas is a flat, untextured surface — no dot grid or grain.
+
+| Element | Treatment | Usage |
+|---------|-----------|-------|
+| Row/section divider | 1px top hairline, `--border-subtle` | Memo rows, taxonomy rows, article sections — a clean top-divider only, no framing |
+| Eyebrow sketch accent | Small hand-drawn squiggle under every `.eyebrow` label, drawn as a masked SVG in `--accent-warm` at 60% opacity | Every eyebrow label, site-wide |
+
+Texture stays low-contrast and structural — it must read as quiet dividers, not as decoration competing with content.

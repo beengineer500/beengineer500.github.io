@@ -2,6 +2,9 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>beengineer500</title>
     <meta
@@ -20,6 +23,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="/styles.css" as="style" />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 이동</a>
@@ -30,11 +34,17 @@
           <img src="/assets/memo-mark.svg" width="28" height="28" alt="" aria-hidden="true" />
           <span>beengineer500</span>
         </a>
-        <nav class="site-nav" aria-label="주요 메뉴">
-          <a href="/posts/">글</a>
-          <a href="/categories/">분류</a>
-          <a href="https://github.com/beengineer500">GitHub</a>
-        </nav>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -77,18 +87,11 @@
 
           <article class="note-row note-row-muted">
             <div class="note-meta">
-              <span>queue</span>
-              <span>draft</span>
+              <span>예정</span>
             </div>
             <div class="note-body">
-              <h3>앞으로 쓸 메모</h3>
-              <p>
-                반복해서 찾게 되는 셸 명령, 운영 중 만난 장애, 개발 도구 셋업을 짧은 실행 기록으로 쌓아둘 예정입니다.
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <span>operations</span>
-                <span>automation</span>
-              </div>
+              <h3>다음 메모</h3>
+              <p>반복해서 찾는 셸 명령과 운영 중 만난 장애를 실행 기록으로 정리할 예정입니다.</p>
             </div>
           </article>
         </div>
