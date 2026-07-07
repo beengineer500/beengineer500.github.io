@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GitHub Pages로 블로그 열기 · beengineer500</title>
+    <meta name="post-category" content="setup" />
+    <meta name="post-tags" content="GitHub Pages, static site" />
     <meta
       name="description"
       content="GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다."
@@ -24,7 +26,8 @@
         </a>
         <nav class="site-nav" aria-label="주요 메뉴">
           <a href="/">홈</a>
-          <a href="/#notes">메모</a>
+          <a href="/posts/">글</a>
+          <a href="/categories/">분류</a>
           <a href="https://github.com/beengineer500">GitHub</a>
         </nav>
       </div>
@@ -40,6 +43,11 @@
             저장소를 만들고 정적 파일을 올리면, GitHub가 바로 웹사이트로 서빙합니다.
           </p>
           <p class="status-line">2026.07.07 · 3 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/setup.html">setup</a>
+            <a href="/tags/github-pages.html">GitHub Pages</a>
+            <a href="/tags/static-site.html">static site</a>
+          </div>
         </header>
 
         <section>
@@ -59,6 +67,12 @@
           <pre><code>beengineer500.github.io/
 ├── index.html
 ├── styles.css
+├── categories/
+│   ├── index.html
+│   └── setup.html
+├── tags/
+│   ├── github-pages.html
+│   └── static-site.html
 ├── posts/
 │   └── hello-github-pages.html
 └── assets/
@@ -74,7 +88,7 @@
         </section>
 
         <p class="article-back">
-          <a href="/">홈으로 돌아가기</a>
+          <a href="/posts/">글 인덱스로 돌아가기</a>
         </p>
       </article>
     </main>
@@ -84,6 +98,8 @@
         <p>beengineer500 · personal engineering notes</p>
         <nav aria-label="푸터 링크">
           <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
           <a href="https://github.com/beengineer500">GitHub</a>
         </nav>
       </div>

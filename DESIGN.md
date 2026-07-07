@@ -110,6 +110,30 @@ All spacing derives from 4px.
 - **Accessibility**: title remains the link target; metadata stays text.
 - **Motion**: color transition only.
 
+### Archive Header
+- **Structure**: label, H1, lead, compact status line.
+- **Variants**: all posts, category archive, tag archive.
+- **Spacing**: `--space-8` below the title block.
+- **States**: static.
+- **Accessibility**: one H1 per archive page and clear landmark flow.
+- **Motion**: none.
+
+### Taxonomy Row
+- **Structure**: term name, description, count.
+- **Variants**: category row and tag row.
+- **Spacing**: `--space-5` vertical rhythm with dividers.
+- **States**: row link hover, focus.
+- **Accessibility**: the full row is the link target; count is supporting text.
+- **Motion**: color transition only.
+
+### Tag Link
+- **Structure**: compact text label inside a bordered muted surface.
+- **Variants**: linked tag/category and inactive current tag.
+- **Spacing**: `--space-1` by `--space-2`.
+- **States**: link default, hover, focus.
+- **Accessibility**: visible text label; no icon-only taxonomy controls.
+- **Motion**: color and border transition only.
+
 ### Article Body
 - **Structure**: title block, prose sections, inline code, code blocks.
 - **Variants**: regular post and 404 note.

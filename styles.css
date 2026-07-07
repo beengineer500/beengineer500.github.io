@@ -261,7 +261,8 @@ img {
 }
 
 .note-body p,
-.section-copy {
+.section-copy,
+.term-description {
   margin-top: var(--space-3);
   color: var(--text-secondary);
   line-height: 1.75;
@@ -277,7 +278,8 @@ img {
   margin-top: var(--space-4);
 }
 
-.note-tags span {
+.note-tags span,
+.note-tags a {
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   background: var(--surface-muted);
@@ -285,6 +287,25 @@ img {
   font-size: 0.75rem;
   line-height: 1.4;
   padding: var(--space-1) var(--space-2);
+}
+
+.note-tags a {
+  text-decoration: none;
+}
+
+.note-tags a:hover {
+  border-color: var(--border-strong);
+  color: var(--accent-primary);
+}
+
+.section-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
 .check-list {
@@ -300,6 +321,15 @@ img {
   padding-block: var(--space-12) var(--space-16);
 }
 
+.archive-shell {
+  padding-block: var(--space-12) var(--space-16);
+}
+
+.archive-header {
+  max-width: var(--reading);
+  padding-bottom: var(--space-8);
+}
+
 .article {
   max-width: var(--reading);
 }
@@ -309,7 +339,8 @@ img {
   padding-bottom: var(--space-8);
 }
 
-.article h1 {
+.article h1,
+.archive-header h1 {
   margin-top: var(--space-3);
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 750;
@@ -372,6 +403,58 @@ img {
   margin-top: var(--space-8);
 }
 
+.article-tags {
+  margin-top: var(--space-5);
+}
+
+.term-list {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.term-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-6);
+  align-items: start;
+  border-top: 1px solid var(--border-subtle);
+  padding-block: var(--space-5);
+  text-decoration: none;
+}
+
+.term-row:hover .term-name {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-primary);
+  text-underline-offset: 0.18em;
+}
+
+.term-main {
+  display: block;
+  min-width: 0;
+}
+
+.term-name {
+  display: block;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-wrap: pretty;
+  word-break: keep-all;
+}
+
+.term-description {
+  display: block;
+}
+
+.term-count {
+  color: var(--text-tertiary);
+  font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
 .not-found {
   min-height: 45vh;
 }
@@ -424,6 +507,15 @@ img {
 
   .article-shell {
     padding-block: var(--space-10) var(--space-12);
+  }
+
+  .archive-shell {
+    padding-block: var(--space-10) var(--space-12);
+  }
+
+  .term-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
   }
 }
 
