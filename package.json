@@ -1,0 +1,11 @@
+{
+  "name": "beengineer500.github.io",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "marked": "^13.0.0"
+  }
+}

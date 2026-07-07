@@ -92,7 +92,7 @@ All spacing derives from 4px.
 ## 5. Components
 
 ### Header
-- **Structure**: skip link, small notebook mark, brand, navigation, theme toggle.
+- **Structure**: skip link, brand, navigation, theme toggle.
 - **Variants**: inline desktop, wrapped mobile.
 - **Spacing**: `--space-3` to `--space-6`.
 - **States**: link default, hover, focus.
@@ -216,6 +216,5 @@ A very quiet notebook texture, applied consistently to both themes. The page can
 | Element | Treatment | Usage |
 |---------|-----------|-------|
 | Row/section divider | 1px top hairline, `--border-subtle` | Memo rows, taxonomy rows, article sections — a clean top-divider only, no framing |
-| Eyebrow sketch accent | Small hand-drawn squiggle under every `.eyebrow` label, drawn as a masked SVG in `--accent-warm` at 60% opacity | Every eyebrow label, site-wide |
 
 Texture stays low-contrast and structural — it must read as quiet dividers, not as decoration competing with content.

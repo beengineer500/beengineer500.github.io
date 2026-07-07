@@ -9,11 +9,8 @@
     <title>GitHub Pages로 블로그 열기 · beengineer500</title>
     <meta name="post-category" content="setup" />
     <meta name="post-tags" content="GitHub Pages, static site" />
-    <meta
-      name="description"
-      content="GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다."
-    />
-    <link rel="canonical" href="https://beengineer500.github.io/posts/hello-github-pages.html" />
+    <meta name="description" content="GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다." />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/hello-github-pages/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="/styles.css" as="style" />
     <link rel="stylesheet" href="/styles.css" />
@@ -25,7 +22,6 @@
     <header class="site-header" aria-label="사이트 헤더">
       <div class="shell masthead">
         <a class="brand" href="/" aria-label="beengineer500 홈">
-          <img src="/assets/memo-mark.svg" width="28" height="28" alt="" aria-hidden="true" />
           <span>beengineer500</span>
         </a>
         <div class="nav-group">
@@ -49,10 +45,9 @@
           <p class="eyebrow">setup</p>
           <h1>GitHub Pages로 블로그 열기</h1>
           <p class="lead">
-            계정 사이트는 저장소 이름이 전부입니다. <code>beengineer500.github.io</code>라는
-            저장소를 만들고 정적 파일을 올리면, GitHub가 바로 웹사이트로 서빙합니다.
+            GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다.
           </p>
-          <p class="status-line">2026.07.07 · 3 min read</p>
+          <p class="status-line">2026.07.07 · 1 min read</p>
           <div class="note-tags article-tags" aria-label="분류와 태그">
             <a href="/categories/setup.html">setup</a>
             <a href="/tags/github-pages.html">GitHub Pages</a>
@@ -63,20 +58,16 @@
         <nav class="toc" id="toc" aria-label="목차" hidden></nav>
 
         <section>
-          <h2>왜 별도 저장소로 시작했나</h2>
-          <p>
-            회사 계정으로 관리되는 워크스페이스 안에 개인 블로그를 넣으면 원격 저장소와
-            권한 경계가 흐려집니다. 그래서 홈 디렉터리에 개인 계정의 Pages 저장소를 따로 두었습니다.
-          </p>
-        </section>
+<h2>왜 별도 저장소로 시작했나</h2>
+<p>회사 계정으로 관리되는 워크스페이스 안에 개인 블로그를 넣으면 원격 저장소와
+권한 경계가 흐려집니다. 그래서 홈 디렉터리에 개인 계정의 Pages 저장소를 따로 두었습니다.</p>
+</section>
 
-        <section>
-          <h2>최소 구조</h2>
-          <p>
-            처음에는 빌드 도구가 없어도 충분합니다. 루트에 <code>index.html</code>과
-            <code>styles.css</code>를 두면 GitHub Pages가 그대로 서빙합니다.
-          </p>
-          <pre><code>beengineer500.github.io/
+<section>
+<h2>최소 구조</h2>
+<p>처음에는 빌드 도구가 없어도 충분합니다. 루트에 <code>index.html</code>과
+<code>styles.css</code>를 두면 GitHub Pages가 그대로 서빙합니다.</p>
+<pre><code>beengineer500.github.io/
 ├── index.html
 ├── styles.css
 ├── categories/
@@ -88,16 +79,15 @@
 ├── posts/
 │   └── hello-github-pages.html
 └── assets/
-    └── memo-mark.svg</code></pre>
-        </section>
+    └── memo-mark.svg
+</code></pre>
+</section>
 
-        <section>
-          <h2>다음 결정</h2>
-          <p>
-            글이 많아지면 Markdown 기반 생성기나 RSS를 붙일 수 있습니다. 지금은 운영 비용이 가장 낮은
-            정적 HTML로 시작하고, 반복 작업이 생기는 시점에 자동화를 추가하는 편이 낫습니다.
-          </p>
-        </section>
+<section>
+<h2>다음 결정</h2>
+<p>글이 많아지면 Markdown 기반 생성기나 RSS를 붙일 수 있습니다. 지금은 운영 비용이 가장 낮은
+정적 HTML로 시작하고, 반복 작업이 생기는 시점에 자동화를 추가하는 편이 낫습니다.</p>
+</section>
 
         <p class="article-back">
           <a href="/posts/">글 인덱스로 돌아가기</a>
