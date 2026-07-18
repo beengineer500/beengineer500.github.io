@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>beengineer500</title>
+    <link>https://beengineer500.github.io/</link>
+    <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
+    <item>
+      <title>GitHub Pages로 블로그 열기</title>
+      <link>https://beengineer500.github.io/posts/2026/hello-github-pages/</link>
+      <description>GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다.</description>
+      <pubDate>Tue, 07 Jul 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/hello-github-pages/</guid>
+    </item>
+  </channel>
+</rss>

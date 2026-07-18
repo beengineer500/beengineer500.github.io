@@ -15,7 +15,7 @@ An engineer's notebook: plain, organized, and built for re-reading. The signatur
 | Surface/muted | --surface-muted | #c1c0b8 | #292827 | Tags, code, quiet blocks |
 | Text/primary | --text-primary | #1a1a18 | #ecebe6 | Headings and body |
 | Text/secondary | --text-secondary | #47463f | #b4b3ac | Metadata and descriptions |
-| Text/tertiary | --text-tertiary | #5d5c54 | #8f8e86 | Low-priority labels |
+| Text/tertiary | --text-tertiary | #55544c | #8f8e86 | Low-priority labels |
 | Border/subtle | --border-subtle | #b2b1a8 | #33322f | Dividers |
 | Border/strong | --border-strong | #98978e | #55544e | Focused structural lines |
 | Accent/primary | --accent-primary | #1a1a18 | #e6e5df | Links and focus |
