@@ -6,9 +6,9 @@
       (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>글 인덱스 · beengineer500</title>
-    <meta name="description" content="beengineer500 블로그의 모든 기술 메모를 날짜 역순으로 모아둔 글 인덱스입니다." />
-    <link rel="canonical" href="https://beengineer500.github.io/posts/" />
+    <title>transformer · beengineer500</title>
+    <meta name="description" content="transformer 태그가 붙은 beengineer500 블로그 메모를 모아둔 페이지입니다." />
+    <link rel="canonical" href="https://beengineer500.github.io/tags/transformer.html" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
     <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
@@ -29,8 +29,8 @@
         <div class="nav-group">
           <nav class="site-nav" aria-label="주요 메뉴">
             <a href="/">홈</a>
-            <a href="/posts/" aria-current="page">글</a>
-            <a href="/categories/">분류</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/" aria-current="page">분류</a>
             <a href="https://github.com/beengineer500">GitHub</a>
           </nav>
           <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
@@ -42,20 +42,19 @@
     </header>
 
     <main id="main" class="shell archive-shell" tabindex="-1">
-      <section class="archive-header" aria-labelledby="archive-title">
-        <p class="eyebrow">post index</p>
-        <h1 id="archive-title">글 인덱스</h1>
+      <section class="archive-header" aria-labelledby="tag-title">
+        <p class="eyebrow">tag</p>
+        <h1 id="tag-title">transformer</h1>
         <p class="lead">
-          모든 메모를 날짜 역순으로 둡니다. 제목, 요약, 분류를 한 번에 보고
-          필요한 기록을 바로 찾을 수 있게 유지합니다.
+          어텐션으로 굴러가는 트랜스포머 아키텍처의 구조와 동작 기록입니다.
         </p>
-        <p class="status-line">5 published notes · 2026</p>
+        <p class="status-line">3 notes</p>
       </section>
 
-      <section class="section-block" aria-labelledby="year-2026">
+      <section class="section-block" aria-labelledby="tag-posts-title">
         <div class="section-heading">
-          <p class="eyebrow">2026</p>
-          <h2 id="year-2026">2026년</h2>
+          <p class="eyebrow">notes</p>
+          <h2 id="tag-posts-title">transformer 메모</h2>
         </div>
 
         <div class="note-list">
@@ -70,7 +69,7 @@
                 GPT-2가 입력 문장을 어떻게 숫자로 바꾸는지, 토큰화부터 768차원 임베딩과 위치 인코딩까지 따라갑니다
               </p>
               <div class="note-tags" aria-label="태그">
-                <a href="/tags/transformer.html">transformer</a>
+                <span>transformer</span>
                 <a href="/tags/embedding.html">embedding</a>
                 <a href="/tags/tokenization.html">tokenization</a>
                 <a href="/tags/gpt-2.html">gpt-2</a>
@@ -89,7 +88,7 @@
                 셀프 어텐션이 Q와 K와 V를 만들고 내적하고 마스킹하고 Softmax를 거쳐 문맥 벡터를 만들기까지, 그리고 헤드를 12개로 쪼개는 이유
               </p>
               <div class="note-tags" aria-label="태그">
-                <a href="/tags/transformer.html">transformer</a>
+                <span>transformer</span>
                 <a href="/tags/attention.html">attention</a>
                 <a href="/tags/self-attention.html">self-attention</a>
                 <a href="/tags/gpt-2.html">gpt-2</a>
@@ -108,46 +107,10 @@
                 어텐션 뒤에서 각 토큰을 혼자 다듬는 MLP, 블록을 지탱하는 세 장치, 그리고 마지막 토큰 하나를 5만 개 단어와 대조해 다음 단어를 고르는 과정
               </p>
               <div class="note-tags" aria-label="태그">
-                <a href="/tags/transformer.html">transformer</a>
+                <span>transformer</span>
                 <a href="/tags/mlp.html">mlp</a>
                 <a href="/tags/softmax.html">softmax</a>
                 <a href="/tags/gpt-2.html">gpt-2</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-09">2026.08.09</time>
-              <a href="/categories/llm.html">llm</a>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/transformer-04-serving/">4편. 서빙에서 어텐션 비용 줄이기 - KV Cache와 prefill과 Flash Attention</a></h3>
-              <p>
-                토큰 하나 뽑을 때마다 반복되는 어텐션 계산을 KV Cache로 없애고, 첫 계산을 prefill로 나누고, Flash Attention으로 메모리 이동을 줄이는 방법
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/tags/kv-cache.html">kv-cache</a>
-                <a href="/tags/flash-attention.html">flash-attention</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
-                <a href="/tags/gpt-2.html">gpt-2</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-07-07">2026.07.07</time>
-              <a href="/categories/setup.html">setup</a>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/hello-github-pages/">GitHub Pages로 블로그 열기</a></h3>
-              <p>
-                GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다.
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/tags/github-pages.html">GitHub Pages</a>
-                <a href="/tags/static-site.html">static site</a>
               </div>
             </div>
           </article>
@@ -160,8 +123,8 @@
         <p>beengineer500 · personal engineering notes</p>
         <nav aria-label="푸터 링크">
           <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
           <a href="/categories/">분류</a>
-          <a href="https://github.com/beengineer500">GitHub</a>
         </nav>
       </div>
     </footer>

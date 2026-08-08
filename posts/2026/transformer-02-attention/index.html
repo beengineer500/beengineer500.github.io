@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>2편. 어텐션은 실제로 뭘 계산하나 · beengineer500</title>
+    <meta name="post-category" content="llm" />
+    <meta name="post-tags" content="transformer, attention, self-attention, gpt-2" />
+    <meta name="description" content="셀프 어텐션이 Q와 K와 V를 만들고 내적하고 마스킹하고 Softmax를 거쳐 문맥 벡터를 만들기까지, 그리고 헤드를 12개로 쪼개는 이유" />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/transformer-02-attention/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell article-shell" tabindex="-1">
+      <article class="article">
+        <header class="article-header">
+          <p class="eyebrow">llm</p>
+          <h1>2편. 어텐션은 실제로 뭘 계산하나</h1>
+          <p class="lead">
+            셀프 어텐션이 Q와 K와 V를 만들고 내적하고 마스킹하고 Softmax를 거쳐 문맥 벡터를 만들기까지, 그리고 헤드를 12개로 쪼개는 이유
+          </p>
+          <p class="status-line">2026.08.09 · 25 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/llm.html">llm</a>
+            <a href="/tags/transformer.html">transformer</a>
+            <a href="/tags/attention.html">attention</a>
+            <a href="/tags/self-attention.html">self-attention</a>
+            <a href="/tags/gpt-2.html">gpt-2</a>
+          </div>
+        </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
+
+        <section>
+<p>1편에서 <code>Data visualization empowers users to</code>는 6개 토큰이 되고, 각 토큰은 768차원 벡터가 되고, 거기에 위치 벡터가 더해졌습니다. 트랜스포머 아키텍처의 맨 왼쪽 <code>Embedding</code> 칸까지입니다.</p>
+<p>이 벡터만으로는 <code>인도 음식점에 가던 중 주행 금지 표지판을 보았다</code>의 <code>인도</code>가 나라 India인지 보도블록인지 알 수 없습니다. 임베딩 행렬은 문장이 뭐였든 <code>인도</code>면 같은 값을 돌려주니까요.</p>
+<p><strong>셀프 어텐션(Self-Attention)</strong> 이 이걸 해결합니다. <code>Transformer Block</code> 안 절반을 차지하는 부분이고, 1편 4부의 텐서 세 성질(정보 보존 · 가중합 · 내적)이 여기서 조립됩니다. 별다른 언급이 없으면 <strong>GPT-2 small</strong> 기준입니다.</p>
+<hr>
+<nav id="manual-toc" class="manual-toc" aria-label="목차">
+
+<h3>목차</h3>
+<p><strong><a href="#section-1">1부. 어텐션의 등장 배경</a></strong></p>
+<ul>
+<li><a href="#s1-1">1.1 임베딩이 담지 못하는 것 - 맥락</a></li>
+<li><a href="#s1-2">1.2 RNN의 방식과 한계</a></li>
+<li><a href="#s1-3">1.3 셀프 어텐션의 정의</a></li>
+</ul>
+<p><strong><a href="#section-2">2부. Q·K·V, 세 개의 역할</a></strong></p>
+<ul>
+<li><a href="#s2-1">2.1 데이터베이스 비유</a></li>
+<li><a href="#s2-2">2.2 가중치 없는 셀프 어텐션</a></li>
+<li><a href="#s2-3">2.3 Wq·Wk·Wv - 학습되는 세 가중치</a></li>
+<li><a href="#s2-4">2.4 묶인 QKV 가중치 - 768 × 2304</a></li>
+</ul>
+<p><strong><a href="#section-3">3부. 어텐션 점수 계산하기</a></strong></p>
+<ul>
+<li><a href="#s3-1">3.1 내적으로 관련도 재기</a></li>
+<li><a href="#s3-2">3.2 스케일링과 마스킹</a></li>
+<li><a href="#s3-3">3.3 Softmax - 절댓값이 아니라 exp()인 이유</a></li>
+<li><a href="#s3-4">3.4 V와 곱해 문맥 벡터 만들기</a></li>
+</ul>
+<p><strong><a href="#section-4">4부. 멀티 헤드</a></strong></p>
+<ul>
+<li><a href="#s4-1">4.1 멀티 헤드 어텐션(MHA)</a></li>
+<li><a href="#s4-2">4.2 768 ÷ 12 = 64</a></li>
+<li><a href="#s4-3">4.3 헤드 출력의 연결 - 더하지 않는 이유</a></li>
+</ul>
+<p><strong><a href="#section-5">전체 흐름 정리</a></strong> · <strong><a href="#section-6">막혔던 곳</a></strong> · <strong><a href="#section-7">출처</a></strong></p>
+</nav>
+
+<hr>
+</section>
+
+<section>
+<h2>1부. 어텐션의 등장 배경</h2>
+<p><a id="s1-1"></a></p>
+<h3>1.1 임베딩이 담지 못하는 것 - 맥락</h3>
+<p>1편 4부에서 정리한 텐서의 세 가지 성질입니다.</p>
+<ul>
+<li><strong>성질 1 - 통과해도 정보는 남는다.</strong> 가중치 행렬과 곱해도 원래 정보가 사라지지 않는다</li>
+<li><strong>성질 2 - 가중합은 정보를 섞는다.</strong> 가중치가 큰 쪽의 정보를 더 많이 갖는다</li>
+<li><strong>성질 3 - 내적은 관련도를 잰다.</strong> 방향이 비슷하면 값이 크고, 무관하면 작거나 음수다</li>
+</ul>
+<p>위 세 가지 성질은 어텐션 과정에서 이렇게 이야기할 수 있습니다. <strong>내적으로 관련도를 재고(성질 3), 그 관련도를 가중치 삼아 정보를 섞고(성질 2), 그래도 원래 정보는 남아 있다(성질 1).</strong></p>
+<p>임베딩 행렬은 <strong>토큰이 가지는 vocab 상의 사전적 의미</strong>를 알려줍니다. 위치 인코딩은 <strong>몇 번째인지에 대한 순서</strong>를 부여합니다. 그런데 <code>인도</code>가 나라인지 보도인지는 둘 다 답하지 못합니다. 그건 <strong>주변에 무슨 단어가 있느냐</strong>에 따라 달라지기 때문입니다.</p>
+<p>이를 해결하기 위해서는 각 토큰이 <strong>같은 문장 안의 다른 토큰들을 실제로 들여다보고, 그 정보를 자기 벡터에 반영</strong>하게 만들어야 합니다. 이를 위해 셀프 어텐션을 사용합니다.</p>
+<p><a id="s1-2"></a></p>
+<h3>1.2 RNN의 방식과 한계</h3>
+<p>이 문제를 어텐션이 처음 푼 건 아닙니다. 그전에 RNN이 있었고, 어텐션은 원래 RNN의 약점을 메우는 보조 장치로 나왔습니다.</p>
+<p>RNN은 단어를 앞에서부터 하나씩 읽으면서 <strong>은닉 상태(hidden state)</strong> 라는 그릇 하나를 계속 갱신합니다. 1번 단어를 읽고 갱신, 2번 단어를 읽고 갱신, 이런 식입니다. 문장을 다 읽고 나면 그 그릇 하나에 문장 전체의 요약이 담겨 있다는 가정입니다.</p>
+<p>번역기는 이렇게 만들어진 <strong>요약 하나</strong>를 넘겨받아 번역문을 만들었습니다. 문제는 여기서 생깁니다.</p>
+<ul>
+<li><strong>초반 정보가 희석된다</strong><ul>
+<li>그릇 크기는 그대로인데 문장이 길어질수록 계속 덮어씁니다.</li>
+</ul>
+</li>
+<li><strong>특정 단어를 콕 집어 참조할 수 없다</strong><ul>
+<li>넘겨받는 게 압축된 요약 하나뿐입니다.</li>
+</ul>
+</li>
+</ul>
+<p><strong>어텐션의 최초 형태</strong>가 이 지점에서 나왔습니다. 요약 하나만 넘기는 대신, <strong>읽는 동안 만들어진 은닉 상태를 전부 넘겨</strong> 참조하게 한 겁니다. 그리고 그중 지금 필요한 단어에는 주의를 많이 기울이고, 안 중요한 단어에는 덜 기울이도록 했습니다. 이름 그대로 &quot;주의(attention)&quot;죠.</p>
+<p>효과는 확실했는데 비용이 따라왔습니다.</p>
+<ul>
+<li><strong>모든 은닉 상태를 전부 보관해야 한다</strong><ul>
+<li>저장 공간과 메모리를 많이 씁니다.</li>
+</ul>
+</li>
+<li><strong>입력 텍스트 길이에 제한이 생긴다</strong><ul>
+<li>무한정 보관할 수 없기 때문입니다.</li>
+</ul>
+</li>
+</ul>
+<p><strong>왜 중요한가</strong> - 1편 2.4절에서 본 컨텍스트 크기 제한이 여기서 시작됩니다. &quot;모든 걸 참조하려면 모든 걸 들고 있어야 한다&quot;는 이 트레이드 오프는 트랜스포머로 넘어와서도 그대로 남아있습니다.</p>
+<aside class="callout">
+<p class="eyebrow">(용어) 은닉 상태</p>
+
+<p>트랜스포머에서도 쓰이는 말인데 뜻이 조금 다릅니다.</p>
+<ul>
+<li><strong>RNN의 은닉 상태</strong> - 과거의 모든 정보를 순차적으로 축적해둔 하나의 긴 기억</li>
+<li><strong>트랜스포머의 은닉 상태</strong> - 특정 시점 혹은 특정 층에서 입력 데이터를 해석해 변환한 벡터</li>
+</ul>
+<p>트랜스포머 쪽은 &quot;지금 이 층을 흐르고 있는 데이터&quot; 정도의 뜻이라고 보면 됩니다.</p>
+</aside>
+
+<p><a id="s1-3"></a></p>
+<h3>1.3 셀프 어텐션의 정의</h3>
+<p>여기서 논문 제목이 나옵니다. <strong>Attention is All You Need.</strong> RNN을 떼어내고 어텐션만 남긴 겁니다. 순차 의존이 사라지니 토큰을 전부 동시에 처리할 수 있고, 그게 GPU 병렬화의 전제입니다.</p>
+<p>그런데 RNN을 떼면 참조할 은닉 상태도 같이 사라집니다. 그럼 뭘 보고 뭘 참조할까요? <strong>자기 자신을 봅니다.</strong></p>
+<p><strong>셀프 어텐션이란 쿼리와 키로 같은 정보를 쓰는 경우를 말합니다.</strong></p>
+<ul>
+<li><strong>기존 어텐션</strong> - 번역문을 만드는 쪽이 원문을 읽은 쪽의 상태를 참조<ul>
+<li>참조하는 쪽과 참조당하는 쪽이 다릅니다. 그래서 셀프가 아닙니다.</li>
+</ul>
+</li>
+<li><strong>셀프 어텐션</strong> - 자기가 가진 토큰들끼리 서로를 참조<ul>
+<li>참조하는 쪽과 참조당하는 쪽이 같습니다. 그래서 &quot;셀프&quot;입니다.</li>
+</ul>
+</li>
+</ul>
+<figure>
+  <img src="01-transformer-block.webp" alt="트랜스포머 블록 하나의 내부 - 왼쪽 Multi-head Self Attention과 오른쪽 MLP, 그리고 블록이 12개 반복된다는 표시">
+  <figcaption>트랜스포머 블록은 두 부분입니다. <strong>Multi-head Self Attention</strong>이 토큰들끼리 정보를 나누게 하고, <strong>MLP</strong>가 각 토큰을 따로 다듬습니다. 이 글은 왼쪽 절반이고, 오른쪽 MLP는 3편에서 다룹니다. GPT-2 small은 이 블록을 12개 쌓습니다. (출처: <a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a>)</figcaption>
+</figure>
+
+<p>동작을 문장 하나로 줄이면 이렇습니다. <strong>쿼리의 각 단어가 키의 여섯 텐서 각각과 내적을 해서 가중합을 구하고, 그 가중합을 다음 층의 입력으로 쓴다.</strong> 한 층을 통과하고 나면 <code>인도</code> 자리의 벡터는 더 이상 사전에서 꺼내온 <code>인도</code>가 아니라, <strong>문장 안의 다른 단어들과의 관련도가 반영된 <code>인도</code></strong> 가 됩니다.</p>
+<p><code>음식점</code>과의 관련도가 높게 나오면 나라 India 쪽으로, <code>주행 금지 표지판</code>과의 관련도가 높게 나오면 보도블록 쪽으로 벡터가 기웁니다.</p>
+<p>그리고 이 층은 한 번만 통과하는 게 아닙니다. GPT-2 small은 블록이 12개라 12번 반복합니다. 성질 1 덕분에 통과할 때마다 정보가 날아가지 않으니 쌓는 게 가능한 거고요.</p>
+<hr>
+</section>
+
+<section>
+<h2>2부. Q·K·V, 세 개의 역할</h2>
+<p><a id="s2-1"></a></p>
+<h3>2.1 데이터베이스 비유</h3>
+<p>셀프 어텐션을 계산하려면 Q, K, V 세 가지가 필요합니다. 이름이 낯설게 들리는데, 데이터베이스를 떠올리면 역할이 바로 잡힙니다.</p>
+<ul>
+<li><strong>Q (Query)</strong> - 질의. 사용자가 던지는 질문</li>
+<li><strong>K (Key)</strong> - 그 질의와 매칭되는 데이터를 찾는 데 쓰는 것. 데이터베이스의 키나 인덱스와 같은 자리</li>
+<li><strong>V (Value)</strong> - 쿼리와 키를 매칭해서 찾아낸 실제 데이터</li>
+</ul>
+<p>여기서 오해하기 쉬운 지점 하나. Q, K, V는 뭔가 특별한 존재가 아닙니다. <strong>그냥 특정 정보를 가진 텐서일 뿐입니다.</strong> 출발점은 전부 1편에서 만든 그 768차원 입력 벡터 하나고요.</p>
+<p>하나의 입력 벡터가 어떻게 세 갈래로 갈라지는지는 2.4절 그림에서 숫자까지 함께 보게 됩니다.</p>
+<p><a id="s2-2"></a></p>
+<h3>2.2 가중치 없는 셀프 어텐션</h3>
+<p>곧바로 가중치를 들고 오면 계산이 복잡해 보이니, 먼저 <strong>가중치가 없는 버전</strong>으로 뼈대만 보겠습니다. 실제 모델은 아니지만 어텐션의 골격이 그대로 드러납니다.</p>
+<p>입력 토큰이 T개 있고, 그중 두 번째 토큰 <code>x(2)</code>를 쿼리로 잡았다고 합시다. 설명을 위해 하나를 고른 것뿐이고, 실제로는 <strong>모든 토큰이 차례로 쿼리가 됩니다.</strong></p>
+<ul>
+<li><strong>Q</strong> - 임베딩된 쿼리 토큰. 여기서는 <code>x(2)</code></li>
+<li><strong>K</strong> - 임베딩된 모든 토큰. 여기서는 <code>x(1)</code> ~ <code>x(T)</code></li>
+</ul>
+<p>Q와 K를 행렬곱해서 <strong>어텐션 점수</strong>를 얻습니다. 표기는 <code>w</code>를 씁니다.</p>
+<pre><code>w21  =  x(2) · x(1)
+ ^^      ^^    ^^
+ |       Q는   K는
+ |       2번   1번
+ |
+ Q가 2번, K가 1번일 때의 어텐션 점수
+</code></pre>
+<p><code>x(2)</code>를 쿼리로 두면 <code>w21</code>, <code>w22</code>, <code>w23</code> ... <code>w2T</code>까지 T개의 점수가 나옵니다. 이 점수들을 정규화해서 <strong>전부 더하면 1이 되도록</strong> 만드는데, 이 과정이 <strong>Softmax</strong>입니다. 그렇게 얻은 값을 <strong>어텐션 가중치</strong>라고 부릅니다.</p>
+<p>의미는 단순합니다. <strong>쿼리 토큰과 가장 관련이 높은 키 토큰이 뭔지 찾는 과정</strong>입니다. 1편 3.4절과 이어보면 자연스럽습니다. 벡터의 행렬곱 값이 크다는 건 좌표 평면에서 가까운 위치에 있다는 뜻이고, word2vec 관점에서 비슷한 의미를 가진다고 해석할 수 있으니까요.</p>
+<p>마지막으로 V가 등장합니다. 가중치 없는 버전에서는 <strong>V도 입력을 임베딩한 그 벡터</strong>입니다. Q와 K를 곱해 정규화한 어텐션 가중치를, V와 다시 행렬곱합니다. 이걸로 한 사이클이 끝납니다.</p>
+<pre><code>Q · K  →  어텐션 점수  →  Softmax  →  어텐션 가중치  →  × V  →  결과
+</code></pre>
+<p><a id="s2-3"></a></p>
+<h3>2.3 Wq·Wk·Wv - 학습되는 세 가중치</h3>
+<p>이제 진짜 버전입니다. 입력 벡터를 그대로 Q, K, V로 쓰는 대신, 모델이 학습으로 얻은 <strong>가중치 행렬 Wq, Wk, Wv를 각각 곱합니다.</strong></p>
+<ul>
+<li><strong>Query 벡터</strong> - <code>x(2)</code>에 <code>Wq</code>를 곱한 것을 쿼리 <code>q(2)</code>로 쓴다</li>
+<li><strong>Key 벡터</strong> - <code>x(2)</code>에 <code>Wk</code>를 곱한 것을 키 <code>k(2)</code>로 쓴다</li>
+<li><strong>Value 벡터</strong> - <code>x(2)</code>에 <code>Wv</code>를 곱한 것을 값 <code>v(2)</code>로 쓴다</li>
+</ul>
+<p>나머지 절차는 2.2절과 똑같습니다. <code>q(2)</code>와 <code>k(2)</code>를 행렬곱해 어텐션 점수를 구하고, 정규화해서 어텐션 가중치를 구하고, V에 그 가중치를 곱합니다. 이렇게 나온 결과를 <strong>문맥 벡터(Context Vector)</strong> 라고 부릅니다. 문맥 벡터는 키 토큰 개수만큼 생기고, 그걸 전부 더해서 최종 문맥 벡터를 얻습니다.</p>
+<p>그러면 이 가중치 셋을 곱해서 <strong>정확히 뭐가 달라지느냐</strong>가 핵심 질문입니다.</p>
+<p><strong>가중치가 없으면 같은 입력 토큰에 대해 Q, K, V가 전부 똑같습니다.</strong> <code>x(2)</code>가 쿼리일 때도 <code>x(2)</code>, 키일 때도 <code>x(2)</code>, 값일 때도 <code>x(2)</code>죠. 서로 다른 세 역할을 맡기고 싶은데 세 개가 같은 값이면 역할 구분이 생기지 않습니다.</p>
+<p>서로 다른 <code>Wq</code>, <code>Wk</code>, <code>Wv</code>를 곱하면 <strong>같은 입력 토큰이라도 <code>q</code>, <code>k</code>, <code>v</code> 벡터가 서로 다른 값</strong>을 갖습니다. 같은 사람이 상황에 따라 질문자, 색인, 내용물의 세 얼굴을 갖는 셈입니다. 그리고 이 가중치들은 사람이 설계한 게 아니라 <strong>학습을 통해 사전에 얻은 값</strong>입니다.</p>
+<p><strong>왜 중요한가</strong> - 어텐션이 학습할 수 있는 부분이 사실상 여기입니다. 어텐션 점수 자체는 계산 결과일 뿐 파라미터가 아닙니다. 모델이 &quot;무엇에 주의를 기울일지&quot;를 배우는 통로는 Wq, Wk, Wv 이 세 행렬이고, 학습이 바꾸는 것도 이 값들입니다.</p>
+<p>여기서 성질 1이 다시 등장합니다. 입력 벡터가 <code>Wv</code>를 통과해 Value가 됐어도, <strong>통과 전 정보가 사라지지 않습니다.</strong> 그래서 Value는 여전히 &quot;그 토큰이 가진 정보&quot;입니다. 이 사실이 3.4절에서 결정적으로 쓰입니다.</p>
+<p><a id="s2-4"></a></p>
+<h3>2.4 묶인 QKV 가중치 - 768 × 2304</h3>
+<p>개념적으로는 입력 벡터에 각 가중치를 따로 곱하는 게 맞습니다. 그런데 PyTorch 같은 최신 딥러닝 프레임워크가 실제로 구현하는 방식은 조금 다릅니다. Transformer Explainer는 그 차이를 잘 반영해서 시각화해 두었고요.</p>
+<p><strong>실제로는 Wq, Wk, Wv를 하나로 묶어서 연산합니다.</strong></p>
+<pre><code>GPT-2 small 임베딩 차원 = 768
+
+Wq  768 × 768
+Wk  768 × 768   →  묶으면  768 × 2304
+Wv  768 × 768              (768 × 3 = 2304)
+</code></pre>
+<p>이유는 순전히 <strong>속도</strong> 때문입니다. 행렬곱을 3번 따로 독립적으로 수행하는 것보다, 거대한 행렬 하나로 묶어서 한 번에 계산하는 쪽이 <strong>GPU의 병렬 처리 성능을 훨씬 잘 끌어씁니다.</strong> 결과는 똑같고, 걸리는 시간만 줄어드는 최적화입니다.</p>
+<p><strong>왜 중요한가</strong> - 서빙 관점에서 이런 게 성능을 가릅니다. GPU는 연산 자체보다 &quot;커널을 몇 번 띄우고 메모리를 몇 번 오가느냐&quot;에서 시간을 많이 잃습니다. 같은 계산을 큰 덩어리 하나로 합치면 그 오버헤드가 3분의 1로 줍니다.</p>
+<figure>
+  <img src="02-qkv-weights.webp" alt="임베딩 행렬 6×768과 QKV 가중치 768×2304를 곱하고 편향을 더해 6×2304 크기의 QKV를 얻는 화면">
+  <figcaption>실제 구현이 그대로 보입니다. <code>Embeddings (6, 768)</code> × <code>Q·K·V Weights (768, 2304)</code> + <code>Bias (2304)</code> = <code>Q·K·V (6, 2304)</code>. 가중치 행렬이 파랑·빨강·초록 세 덩어리로 칠해져 있는데, 저게 각각 Wq·Wk·Wv입니다. 개념은 셋이지만 <strong>메모리에는 하나로 붙어 있고 곱셈도 한 번</strong>입니다. (출처: <a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a>)</figcaption>
+</figure>
+
+<hr>
+</section>
+
+<section>
+<h2>3부. 어텐션 점수 계산하기</h2>
+<p>이제 Q, K, V가 준비됐습니다. 여기서부터가 <strong>Masked Self Attention</strong>이고, <strong>Causal Attention(코잘 어텐션)</strong> 이라고도 부릅니다. 네 단계로 나뉩니다.</p>
+<figure>
+  <img src="03-masked-attention.webp" alt="Key와 Query와 Value에서 출발해 Dot product, Scaling과 Mask, Softmax를 거쳐 Out으로 이어지는 어텐션 계산 흐름">
+  <figcaption>3부의 전체 지도입니다. <code>Dot product</code> → <code>Scaling · Mask</code> → <code>Softmax</code>를 지나며 값의 범위가 <code>−34.5~35.2</code> → <code>−3.0~3.0</code> → <code>0.0~1.0</code>으로 좁혀집니다. 세 번째 행렬이 <strong>왼쪽 아래만 남은 계단 모양</strong>인 게 보이는데, 그게 마스킹의 결과입니다. (출처: <a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a>)</figcaption>
+</figure>
+
+<p><a id="s3-1"></a></p>
+<h3>3.1 내적으로 관련도 재기</h3>
+<p>첫 단계는 <strong>내적(Dot Product)</strong> 입니다. 입력 벡터에 <code>Wq</code>, <code>Wk</code>를 곱해 얻은 Q, K 벡터를 내적합니다.</p>
+<p>성질 3이 여기서 그대로 쓰입니다. 내적 결과는 두 벡터의 값이 비슷할수록 커집니다. 즉 <strong>Query와 각 Key를 내적한 결과는 &quot;이 Key가 Query와 얼마나 연관돼 있나, 얼마나 비슷한 방향인가&quot;를 계산한 값</strong>입니다.</p>
+<p>토큰이 6개면 각 토큰이 차례로 쿼리가 되고, 각각이 6개 키와 내적하니 결과는 <strong>6 × 6 행렬</strong>이 됩니다. 문장 안의 모든 단어 쌍에 대한 관련도 표가 한 번에 나오는 셈입니다.</p>
+<p>3부 첫머리 그림의 맨 왼쪽 <code>Dot product</code> 행렬이 바로 이것입니다. 6행 6열, 각 칸이 &quot;행에 해당하는 Query와 열에 해당하는 Key의 내적값&quot;이죠.</p>
+<p>값의 범위를 짚어둬야 뒤가 이해됩니다. 내적 결과는 <strong>음의 무한대에서 양의 무한대 사이 아무 값이나</strong> 될 수 있습니다.</p>
+<ul>
+<li>양수이고 값이 클수록 → 두 벡터는 유사하다</li>
+<li>음수일수록 → 두 벡터는 관련이 없다</li>
+</ul>
+<p>이 상태로는 가중합에 쓸 수 없습니다. 성질 2가 성립하려면 가중치가 <strong>양수이면서 전체 합이 1</strong>이어야 하는데, 지금 값들은 음수일 수도 있고 1보다 클 수도 있으니까요. 그래서 정규화가 필요하고, 그 전에 값을 손보는 단계가 먼저 들어갑니다.</p>
+<p><a id="s3-2"></a></p>
+<h3>3.2 스케일링과 마스킹</h3>
+<p>두 번째 단계는 값을 두 번 손보는 구간입니다. 먼저 <strong>스케일링(Scaling)</strong>, 그다음 <strong>마스킹(Masking)</strong> 입니다.</p>
+<h4>스케일링 - √64로 나누기</h4>
+<p>위 그림의 숫자 범위를 보면 무슨 일이 벌어지는지 보입니다.</p>
+<pre><code>Dot product      −34.5  ~  35.2
+      ↓ 스케일링
+Scaling · Mask    −3.0  ~   3.0
+      ↓ Softmax
+Softmax            0.0  ~   1.0
+</code></pre>
+<p>내적값을 <strong>차원 수의 제곱근으로 나눕니다.</strong> 헤드 하나가 담당하는 차원이 64이므로 <code>√64 = 8</code>로 나누는 셈입니다. 이 <code>64</code>는 4.2절에서 다시 만납니다.</p>
+<p>왜 나눌까요. 768개(정확히는 헤드당 64개) 숫자를 곱해서 더한 값이라 내적 결과는 쉽게 수십 단위로 커집니다. 그 상태로 exp()를 태우면 제일 큰 값 하나만 살아남고 나머지가 전부 0에 수렴합니다. 가중합이 아니라 <strong>사실상 &quot;가장 큰 것 하나만 고르기&quot;</strong> 가 돼버립니다. 값의 폭을 미리 좁혀두면 Softmax가 부드러운 분포를 내놓고, 학습도 안정적으로 진행됩니다.</p>
+<h4>마스킹 - 미래 토큰 가리기</h4>
+<p>이어서 <strong>Masking</strong>입니다. Q와 K를 내적한 결과 행렬에 마스킹을 수행합니다. 역할은 한 줄로 정리됩니다. <strong>예측해서 알아내야 할 미래 정보를 맥락으로 쓰지 못하게 막는 가림막.</strong></p>
+<p>왜 굳이 막아야 할까요. 학습 방식을 보면 이유가 나옵니다.</p>
+<p>트랜스포머는 훈련할 때 <strong>정답 문장을 통째로 넣고 병렬로 학습</strong>합니다. 단어가 7개면 정답 7개를 한 번에 줘서, 한 번의 계산으로 모든 위치의 예측을 얻는 방식입니다. 이게 트랜스포머가 빠른 이유의 큰 부분입니다.</p>
+<p>그런데 이 방식에는 구멍이 있습니다. <strong>맞혀야 할 정답이 입력 안에 이미 들어 있습니다.</strong></p>
+<p><code>Oh I want to quit</code>을 학습한다고 해봅시다. 각 자리에서 모델이 맞혀야 할 답은 이렇습니다.</p>
+<pre><code>자리     1       2      3      4      5
+입력   [SOS]    Oh      I     want    to
+정답    Oh       I     want    to    quit
+                       ↑       ↑
+              3번 자리의 정답이   입력 4번 칸에 그대로 있음
+</code></pre>
+<p>정답 줄은 입력 줄을 한 칸 옮긴 것과 같습니다. 그래서 3번 자리에서 맞혀야 할 <code>want</code>가 입력의 바로 오른쪽 칸에 버젓이 놓여 있습니다.</p>
+<p>그러면 모델은 문법도 의미도 배울 필요가 없습니다. <strong>&quot;항상 오른쪽 칸을 베껴라&quot;</strong> 는 규칙 하나면 정답률이 100%가 되니까요.</p>
+<p>모델이 잔머리를 굴린 게 아닙니다. 학습이란 틀린 정도가 줄어드는 쪽으로 조금씩 움직이는 과정인데, 베끼기는 그 방향으로 가는 <strong>지름길</strong>입니다. 언어를 이해하는 길보다 훨씬 빠르고 쉬우니 자연히 그쪽으로 갑니다.</p>
+<p>문제는 이 지름길이 실전에서 막혀 있다는 것입니다. 실제로 문장을 만들 때는 오른쪽 칸이 <strong>비어 있습니다.</strong> 아직 만들지 않은 단어니까요. 베끼기만 익힌 모델은 베낄 대상이 사라지자 아무것도 못 합니다.</p>
+<p><strong>그래서 학습할 때도 오른쪽 칸을 미리 가려둡니다.</strong> 지름길을 아예 없애버리면 모델은 먼 길로 갈 수밖에 없고, 그 먼 길이 바로 문법과 의미를 배우는 길입니다.</p>
+<p>구현은 단순합니다. <strong>내적한 결과에 극단적인 음수 값을 줍니다.</strong> N번째 토큰이 쿼리면, N번째부터 끝까지의 자리를 전부 극단적인 음수로 덮어씁니다. 다음 단계에서 exp()를 통과하면 이 값들은 <strong>0이 됩니다.</strong> 가중치가 0이면 그 정보는 가중합에 하나도 섞이지 않습니다. 완벽하게 가려진 겁니다.</p>
+<p>행렬 모양으로 보면 직관적입니다.</p>
+<pre><code>마스킹 없음 (직사각형)        마스킹 있음 (계단)
+■ ■ ■ ■ ■ ■                  ■ □ □ □ □ □
+■ ■ ■ ■ ■ ■                  ■ ■ □ □ □ □
+■ ■ ■ ■ ■ ■        →         ■ ■ ■ □ □ □
+■ ■ ■ ■ ■ ■                  ■ ■ ■ ■ □ □
+■ ■ ■ ■ ■ ■                  ■ ■ ■ ■ ■ □
+■ ■ ■ ■ ■ ■                  ■ ■ ■ ■ ■ ■
+
+모든 토큰이 모든 토큰을 봄      각 토큰은 자기와 그 앞만 봄
+</code></pre>
+<figure>
+  <img src="cap-01-masking-rect-vs-stairs.webp" alt="마스킹 없음은 직사각형이라 정답이 입력에 그대로 노출되고, 마스킹 있음은 계단 모양이라 빈 칸이 정답을 가린다는 비교 도식">
+  <figcaption>같은 이야기를 학습 관점에서 본 그림입니다. 위쪽(마스킹 없음)은 붉은 칸에 <strong>정답이 입력으로 이미 들어와 있어</strong> 베끼기만 하면 loss가 0이 됩니다. 아래쪽(마스킹 있음)은 빈 칸이 정답을 가려서 다섯 행 모두 진짜로 예측해야 하고요. 두 경우의 forward 횟수는 <strong>똑같이 1회</strong>입니다. 마스크는 속도가 아니라 <strong>학습이 성립하느냐</strong>의 문제라는 뜻입니다.</figcaption>
+</figure>
+
+<p><strong>왜 중요한가</strong> - GPT가 &quot;다음 토큰 하나를 예측하는&quot; 모델일 수 있는 근거가 이 계단 모양입니다. 그리고 이 계단은 4편의 KV Cache로 직결됩니다. 각 토큰이 자기 앞쪽만 본다는 건, <strong>앞쪽 토큰들의 K와 V가 나중에도 안 변한다</strong>는 뜻이거든요. 안 변하니 캐싱할 수 있습니다.</p>
+<p><a id="s3-3"></a></p>
+<h3>3.3 Softmax - 절댓값이 아니라 exp()인 이유</h3>
+<p>세 번째 단계가 <strong>Softmax</strong>입니다. 목적은 명확합니다. <strong>마스킹까지 마친 행렬의 값들을 양수이면서 총합이 1이 되도록 만드는 것.</strong> 성질 2가 요구하는 조건 그대로입니다.</p>
+<p>동작도 두 줄입니다.</p>
+<pre><code>1) 각 값에 exp() 를 취한다        → 전부 양수가 된다
+2) 그 값들의 총합으로 각각을 나눈다  → 총합이 1이 된다
+</code></pre>
+<p>그런데 여기서 한 번 걸립니다. <strong>양수로 만드는 게 목적이라면 절댓값을 취해도 되는 것 아닌가?</strong> 절댓값이 훨씬 싸고 간단한데요.</p>
+<p>안 됩니다.</p>
+<p>내적 결과는 <strong>두 벡터의 관련도 정보를 담고 있습니다.</strong> 양수이고 클수록 유사하고, 음수일수록 무관합니다. 그런데 여기에 절댓값을 씌우면 어떻게 될까요.</p>
+<pre><code>내적 결과      절댓값       exp()
+ +5.0    →     5.0         큰 값
+ -5.0    →     5.0  ✗      아주 작은 값  ✓
+ +0.1    →     0.1         1에 가까운 값
+</code></pre>
+<p><code>-5.0</code>은 &quot;완전히 무관하다&quot;는 뜻인데, 절댓값을 씌우면 <code>+5.0</code>과 구별이 안 됩니다. <strong>가장 관련 없는 것이 가장 관련 있는 것과 같은 대접을 받게 됩니다.</strong> 원래 갖고 있던 관련도 정보를 통째로 훼손하는 겁니다.</p>
+<p>exp()는 다릅니다. 음수였던 값은 exp를 거쳐도 <strong>작은 값</strong>으로 남고, 양수였던 값은 <strong>큰 값</strong>이 됩니다. 순서가 그대로 보존됩니다. 즉 <strong>기존에 갖고 있던 정보와 경향을 유지하면서 양수로 만드는 방법</strong>이 exp()입니다. 지수 함수라 값 차이도 벌어집니다.</p>
+<p>그리고 3.2절의 마스킹이 여기서 맞물립니다. 마스킹은 극단적인 음수를 넣는 것이었죠. exp()에 극단적인 음수를 넣으면 결과는 0에 수렴합니다. <strong>마스킹과 Softmax가 한 세트로 설계된 것</strong>입니다. 순서를 바꾸면 성립하지 않습니다.</p>
+<p>이렇게 얻은 결과를 <strong>어텐션 가중치</strong>라고 부릅니다. 다만 이걸 어텐션 점수라고 부르는 자료도 많아서, 어느 쪽인지는 문맥으로 판단해야 합니다. 이 혼용은 <a href="#section-6">막혔던 곳</a>에 따로 정리했습니다.</p>
+<p><a id="s3-4"></a></p>
+<h3>3.4 V와 곱해 문맥 벡터 만들기</h3>
+<p>마지막 단계입니다. <strong>어텐션 가중치를 V 벡터와 곱합니다.</strong> 값이 양수이고 합이 1인 가중치로 여러 벡터를 섞는 것, 정확히 성질 2의 <strong>Weighted Sum</strong>입니다.</p>
+<p>가중치가 <code>0.7, 0.25, 0.02, 0.03</code>이라면 결과는 1번 텐서의 정보를 제일 많이 갖고, 2번을 그다음으로 갖고, 3·4번은 거의 갖지 않는 벡터가 됩니다. &quot;Query와 유사도가 큰 정보의 Value를 많이 담은 결과를 만들겠다&quot;는 의도가 이 곱셈 하나로 실현됩니다.</p>
+<figure>
+  <img src="04-attention-head-out.webp" alt="어텐션 행렬 6×6과 Value 행렬 6×64를 곱해 6×64 크기의 Out을 얻는 화면과 헤드 5 of 12 표시">
+  <figcaption>헤드 하나의 마지막 곱셈입니다. <code>Attention (6, 6)</code> × <code>Value (6, 64)</code> = <code>Out (6, 64)</code>. 여기 나오는 <code>64</code>가 4.2절에서 다룰 <strong>헤드 하나가 담당하는 차원</strong>이고, <code>Head 5 of 12</code>는 이 계산이 12벌 돌아간다는 뜻입니다. (출처: <a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a>)</figcaption>
+</figure>
+
+<p><strong>어텐션의 결과는 본질적으로 Key(에서 나온 Value) 정보들의 가중합입니다.</strong> Query의 정보는 &quot;얼마나 섞을지&quot;를 정하는 데에만 쓰이고, 결과물 안에는 간접적으로만 들어갑니다.</p>
+<p>번역기 예시가 이걸 보여줍니다.</p>
+<ul>
+<li><strong>Query</strong> - <code>Orange</code> (영어)</li>
+<li><strong>Keys</strong> - <code>오랜</code>, <code>지병</code>, <code>으로</code>, <code>쓰러졌다</code> (한국어)</li>
+</ul>
+<p>Query의 정보 공간은 영어인데, <strong>가중합 결과의 정보 공간은 한국어</strong>입니다. 결과가 Value들의 가중합인데, Value는 Key가 <code>Wv</code>를 통과해서 나온 것이고, 성질 1에 따라 통과해도 원래 정보가 남아 있으니 Value는 결국 Key로부터 만들어진 정보이기 때문입니다.</p>
+<p>엄밀히 말하면 이 예시는 셀프 어텐션이 아니라 번역기의 <strong>교차 어텐션</strong>입니다. 쿼리와 키의 출처가 서로 다르니까요. 그래도 예시로 쓸 수 있는 건 <strong>&quot;출력은 Value들의 가중합&quot;</strong> 이라는 성질이 셀프 어텐션에서도 똑같이 성립하기 때문입니다.</p>
+<p><strong>왜 중요한가</strong> - &quot;어텐션이 정보를 어디서 가져오는가&quot;에 대한 답이 이겁니다. 어텐션은 새 정보를 만들지 않습니다. <strong>이미 문장 안에 있던 정보를 골라 섞을 뿐</strong>입니다. 그래서 셀프 어텐션을 한 층 통과한 <code>인도</code>는, 같은 문장 안 <code>음식점</code>이나 <code>표지판</code>의 정보가 섞여 들어간 <code>인도</code>가 됩니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>4부. 멀티 헤드</h2>
+<p><a id="s4-1"></a></p>
+<h3>4.1 멀티 헤드 어텐션(MHA)</h3>
+<p>지금까지 본 게 헤드 하나짜리 어텐션입니다. Wq, Wk, Wv 한 세트로 계산했죠. 그런데 실제 모델은 이걸 여러 벌 운영합니다.</p>
+<p>논리는 간단합니다. <strong>어떤 가중치가 특정 종류의 맥락을 잘 파악하도록 맞춰져 있으면, 그 맥락에 대해서는 더 좋은 예측을 냅니다.</strong> 그렇다면 그런 가중치를 하나만 두지 말고 여러 개 두면, 다양한 문맥의 입력에 대해 고르게 좋은 결과를 얻을 수 있습니다.</p>
+<p>이 가중치 행렬 한 세트를 <strong>헤드(Head)</strong> 라고 부르고, 여러 헤드를 운영하는 어텐션을 <strong>멀티 헤드 어텐션(Multi-Head Attention, MHA)</strong> 이라고 합니다.</p>
+<ul>
+<li><strong>헤드의 개수</strong> = 모델이 가진 가중치 행렬 세트의 개수<ul>
+<li>각 헤드는 서로 다른 맥락(문법, 문맥, 단어 간 연관성 등)에 특화된 가중치를 가집니다.</li>
+</ul>
+</li>
+<li><strong>헤드 수만큼 결과도 늘어난다</strong><ul>
+<li>어텐션 가중치가 헤드 수만큼 생깁니다.</li>
+<li>문맥 벡터도 헤드 수만큼 생깁니다.</li>
+</ul>
+</li>
+</ul>
+<p><strong>왜 중요한가</strong> - 헤드들 사이에 순서 의존이 전혀 없습니다. 12번 헤드가 1번 헤드의 결과를 기다릴 이유가 없죠. 그래서 <strong>각 헤드는 완전히 병렬로 처리 가능</strong>합니다. RNN을 버리고 얻은 병렬성이 여기서 한 겹 더 늘어나는 셈입니다.</p>
+<p><a id="s4-2"></a></p>
+<h3>4.2 768 ÷ 12 = 64</h3>
+<p>여기서 자주 오해가 생깁니다. 헤드를 12개 두면 계산량이 12배가 될까요? 아닙니다. <strong>768차원을 12개로 나눠 갖습니다.</strong></p>
+<pre><code>GPT-2 small 임베딩 차원 = 768
+GPT-2 small 헤드 개수   = 12
+
+768 ÷ 12 = 64
+
+→ 헤드 하나가 담당하는 차원 = 64
+</code></pre>
+<p>3.4절 그림의 <code>Value (6, 64)</code>와 <code>Out (6, 64)</code>에 찍혀 있던 <code>64</code>가 바로 이 값입니다. 토큰은 6개 그대로인데 차원만 768이 아니라 64인 이유가 여기 있었습니다. 같은 그림의 <code>Head 5 of 12</code> 표시도 이제 읽힙니다.</p>
+<p><strong>왜 중요한가</strong> - 768차원 전체를 12번 계산하는 게 아니라, 64차원짜리 계산을 12번 하는 겁니다. 총 연산량은 헤드 하나로 768차원을 통째로 처리하는 것과 같은 급이면서, 서로 다른 관점 12개를 동시에 얻습니다.</p>
+<p><a id="s4-3"></a></p>
+<h3>4.3 헤드 출력의 연결 - 더하지 않는 이유</h3>
+<p>헤드마다 문맥 벡터가 하나씩 나옵니다. 12개 헤드면 64차원 문맥 벡터가 12개죠. 이걸 어떻게 합칠까요.</p>
+<p><strong>각 헤드의 문맥 벡터를 더하지 않고 &quot;연결(concatenate)&quot;합니다.</strong> 그렇게 최종 결합 문맥 벡터를 만듭니다.</p>
+<pre><code>헤드 1 문맥 벡터  (64)  ┐
+헤드 2 문맥 벡터  (64)  │
+     ...              ├─ 연결 →  768차원 문맥 벡터
+헤드 11 문맥 벡터 (64)  │
+헤드 12 문맥 벡터 (64)  ┘
+
+64 × 12 = 768
+</code></pre>
+<p>더하면 안 되는 이유는 헤드의 존재 이유와 맞물립니다. 헤드들은 <strong>서로 다른 관점</strong>을 담으라고 나눠놓은 건데, 더해버리면 그 관점들이 한 덩어리로 뭉개집니다. 문법을 본 헤드와 지시 관계를 본 헤드의 결과가 섞여 구분이 사라집니다. 연결하면 각 헤드의 결과가 <strong>자기 자리를 그대로 유지</strong>합니다.</p>
+<p>그리고 <code>64 × 12 = 768</code>입니다. 입력으로 들어온 차원과 나가는 차원이 <strong>똑같이 768</strong>입니다.</p>
+<p>이게 우연이 아닙니다. <strong>입력 차원과 출력 차원이 같아야 어텐션 모듈(디코더 블록)을 반복해서 통과시키기 편하기 때문</strong>입니다. 1편 3.5절에서 &quot;768은 왜 못 바꾸나&quot;를 이야기했는데, 그 답의 절반이 여기 있습니다. 나가는 값이 다시 같은 모양으로 들어와야 블록 12개를 줄줄이 쌓을 수 있으니까요.</p>
+<figure>
+  <img src="cap-02-multihead.webp" alt="헤드 2개짜리 멀티 헤드 어텐션 도식 - Wq1 Wq2 등 가중치가 두 벌씩이고 문맥 벡터 Z1과 Z2가 결합된 문맥 벡터 Z로 이어짐">
+  <figcaption>헤드 2개짜리로 줄여 그린 그림입니다. 가중치가 <code>Wq1·Wq2</code>처럼 두 벌이고, 쿼리도 <code>Q₁·Q₂</code> 두 개, 문맥 벡터도 <code>Z₁·Z₂</code> 두 개입니다. 마지막에 둘을 <strong>더하지 않고 옆으로 이어붙여</strong> 결합된 문맥 벡터 <code>Z</code>가 됩니다. (출처: 박해선, <a href="https://www.youtube.com/watch?v=YN7tAB_Upvw">밑바닥부터 만들면서 배우는 LLM 3.6</a>)</figcaption>
+</figure>
+
+<aside class="callout">
+<p class="eyebrow">(용어) 가중치 vs 어텐션 가중치</p>
+
+<p>이름이 비슷하지만 완전히 다른 것입니다.</p>
+<ul>
+<li><strong>가중치(Wq, Wk, Wv)</strong> - 모델 파라미터. 학습으로 정해지고 저장된다</li>
+<li><strong>어텐션 가중치</strong> - 모델 파라미터가 <strong>아니다.</strong> 입력이 들어올 때마다 계산되는 중간 결과다</li>
+</ul>
+<p>헷갈릴 때는 후자를 <strong>어텐션 점수</strong>라고 부르면 덜 혼동됩니다.</p>
+</aside>
+
+<hr>
+</section>
+
+<section>
+<h2>전체 흐름 정리</h2>
+<pre><code>6개의 768차원 벡터                          (1편의 결과물)
+        ↓ × 묶인 가중치 행렬 (768 × 2304)
+Q, K, V                                     각각 6개 벡터
+        ↓ 헤드 12개로 분할 (768 = 12 × 64)
+헤드마다 Q, K, V                            각 64차원
+        ↓ Q · K 내적                        (성질 3)
+어텐션 점수 행렬 (6 × 6)                    범위 -∞ ~ +∞
+        ↓ 스케일링 (√64 = 8 로 나눔)
+값의 폭이 좁혀진 행렬
+        ↓ 마스킹 (미래 자리에 극단적 음수)
+계단(하삼각) 모양 행렬
+        ↓ Softmax  (exp 후 총합으로 나눔)
+어텐션 가중치                               양수 · 각 행의 합 = 1
+        ↓ × V  가중합                       (성질 2)
+헤드별 문맥 벡터 (64차원) × 12
+        ↓ 연결 (concat)
+문맥 벡터 768차원 × 6개 토큰                (성질 1로 원 정보 보존)
+        ↓
+MLP로 →  (3편에서 계속)
+</code></pre>
+<p>한 줄로 줄이면 이렇습니다. <strong>모든 단어 쌍의 관련도를 내적으로 재고, 미래는 가리고, 관련도를 확률로 바꾼 뒤, 그 비율대로 다른 단어들의 정보를 섞어 온다.</strong></p>
+<p>기억할 숫자 세 개를 정리해 둡니다. 1편의 세 숫자와 이어집니다.</p>
+<table>
+<thead>
+<tr>
+<th>숫자</th>
+<th>뜻</th>
+<th>왜 중요한가</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>2304</strong></td>
+<td>묶인 QKV 가중치의 가로 크기 (768 × 3)</td>
+<td>행렬곱 3번을 1번으로 합쳐 GPU 병렬성을 살린 결과</td>
+</tr>
+<tr>
+<td><strong>12</strong></td>
+<td>헤드 개수</td>
+<td>서로 다른 맥락을 보는 관점의 수, 전부 병렬 처리 가능</td>
+</tr>
+<tr>
+<td><strong>64</strong></td>
+<td>헤드 하나가 담당하는 차원 (768 ÷ 12)</td>
+<td>연결하면 다시 768이라 블록을 반복해 쌓을 수 있음</td>
+</tr>
+</tbody></table>
+<hr>
+</section>
+
+<section>
+<h2>막혔던 곳</h2>
+<p>정리하면서 한 번씩 걸렸던 지점들입니다.</p>
+<p><strong>양수로 만드는 게 목적이라면 절댓값을 취해도 되는데 왜 exp()인가?</strong> 절댓값은 정보를 훼손합니다. 내적 결과는 관련도를 담고 있어서, 양수이고 클수록 유사하고 음수일수록 무관합니다. 여기에 절댓값을 씌우면 <code>-5.0</code>(가장 무관함)이 <code>+5.0</code>(가장 유사함)과 같은 값이 돼버립니다. exp()는 음수를 작은 값으로, 양수를 큰 값으로 보내니 <strong>원래 경향을 유지한 채로</strong> 전부 양수로 만들 수 있습니다. 마스킹이 넣은 극단적 음수가 exp()를 지나 0이 되는 것도 같은 성질 덕분입니다.</p>
+<p><strong>셀프 어텐션의 &#39;셀프&#39;가 정확히 뭔가?</strong> 쿼리와 키로 같은 정보를 쓰는 경우를 말합니다. 원래 어텐션은 번역문을 만드는 쪽이 원문을 읽은 쪽의 상태를 참조하는 형태라 참조하는 쪽과 참조당하는 쪽이 달랐고, 그래서 셀프가 아니었습니다. 트랜스포머는 자기가 가진 토큰들끼리 서로를 참조하므로 셀프입니다.</p>
+<p><strong>어텐션 점수와 어텐션 가중치는 같은 말인가?</strong> 문헌마다 다릅니다. Q·K 내적 결과를 어텐션 점수, Softmax를 통과한 결과를 어텐션 가중치라고 나눠 부르는 경우가 일반적이지만, Softmax까지 마친 결과를 어텐션 점수라고 부르는 자료도 많습니다. 섞어 쓰는 경우가 흔하니 문맥으로 판단해야 합니다. 다만 <strong>모델 파라미터인 가중치(Wq/Wk/Wv)와는 반드시 구분</strong>해야 합니다. 어텐션 가중치는 파라미터가 아니라 입력마다 새로 계산되는 중간 결과입니다.</p>
+<p><strong>가중치 Wq, Wk, Wv를 곱하면 대체 뭐가 달라지나?</strong> 가중치가 없으면 같은 입력 토큰에 대해 Q, K, V가 전부 같은 값입니다. 세 가지 역할을 맡기려는데 셋이 같으면 역할 구분이 생기지 않습니다. 서로 다른 가중치를 곱해야 같은 토큰이 질문자·색인·내용물이라는 세 얼굴을 가질 수 있고, 모델이 학습으로 조정할 수 있는 지점도 이 세 행렬뿐입니다.</p>
+<p><strong>헤드마다 나온 문맥 벡터를 왜 더하지 않고 연결하나?</strong> 더하면 헤드별 관점이 뭉개집니다. 헤드를 여러 개 둔 이유가 서로 다른 맥락을 따로 보라는 건데, 더해버리면 그 구분이 사라집니다. 연결하면 각 헤드의 결과가 자기 자리를 유지합니다. 게다가 <code>64 × 12 = 768</code>이라 입력 차원과 출력 차원이 같아지는데, <strong>블록을 반복해서 쌓으려면 이 두 차원이 같아야</strong> 합니다.</p>
+<p><strong>마스킹은 학습할 때만 필요한 것 아닌가?</strong> 아닙니다. 마스킹은 학습 중에도 각 위치의 시야를 <strong>생성할 때와 동일하게</strong> 잘라두는 장치입니다. 학습과 생성의 조건을 일치시키는 게 목적이라, 추론할 때도 계단 모양은 그대로 유지됩니다. 그래야 학습 중 굳어진 어텐션 패턴이 생성 시점에도 그대로 통합니다.</p>
+<p><strong>어텐션이 맥락을 가져오면 뒤의 MLP는 뭘 하나?</strong> 역할이 완전히 분리돼 있습니다. 어텐션은 <strong>단어들끼리 서로 대화하며 맥락을 파악</strong>하는 단계입니다. MLP는 반대로 단어들끼리의 교류가 완전히 차단된 채, 어텐션에서 얻어온 새로운 뉘앙스를 각 단어가 <strong>혼자 깊게 소화하는</strong> 단계고요. 팀 회의에서 남의 의견을 듣고 메모하는 게 어텐션, 자리로 돌아와 그 메모를 곱씹으며 생각을 정리하는 게 MLP입니다. MLP는 3편에서 다룹니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>출처</h2>
+<ul>
+<li><a href="https://poloclub.github.io/transformer-explainer/">Transformer Explainer</a> - Georgia Tech Polo Club. Multi-Head Self-Attention 칸을 직접 눌러보며 정리했습니다</li>
+<li>임커밋, <a href="https://www.youtube.com/watch?v=6s69XY025MU">Attention/Transformer 시각화로 설명</a> - <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=142s">02:22 내적</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=192s">03:12 Query와 Key 텐서</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=325s">05:25 가중합으로 정보 섞기</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=374s">06:14 절댓값 대신 exp</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=442s">07:22 Softmax</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=492s">08:12 Orange 예시</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=965s">16:05 Self-Attention</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=1105s">18:25 Masking</a>, <a href="https://www.youtube.com/watch?v=6s69XY025MU&t=1624s">27:04 극단적 음수로 가리기</a></li>
+<li>박해선, 밑바닥부터 만들면서 배우는 LLM - <a href="https://www.youtube.com/watch?v=wKfEGu7X2g4">3.2 어텐션 메커니즘으로 데이터 의존성 포착하기</a>, <a href="https://www.youtube.com/watch?v=96kfzL2tWxE">3.3 셀프 어텐션으로 입력의 서로 다른 부분에 주의 기울이기</a>, <a href="https://www.youtube.com/watch?v=SNZ94VseLN8">3.4 훈련 가능한 가중치를 가진 셀프 어텐션 구현하기</a>, <a href="https://www.youtube.com/watch?v=P4W9bymlYQI">3.5 코잘 어텐션으로 미래의 단어를 감추기</a>, <a href="https://www.youtube.com/watch?v=YN7tAB_Upvw">3.6 싱글 헤드 어텐션을 멀티 헤드 어텐션으로 확장하기</a></li>
+<li>3Blue1Brown, <a href="https://www.youtube.com/watch?v=_Z3rXeJahMs">그 이름도 유명한 어텐션 (DL6)</a> - <a href="https://www.youtube.com/watch?v=_Z3rXeJahMs&t=383s">06:23 Query</a>, <a href="https://www.youtube.com/watch?v=_Z3rXeJahMs&t=661s">11:01 병렬 훈련</a>, <a href="https://www.youtube.com/watch?v=_Z3rXeJahMs&t=720s">12:00 Value</a></li>
+<li>Vaswani et al., <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a> (2017)</li>
+</ul>
+</section>
+
+        <p class="article-back">
+          <a href="/posts/">글 인덱스로 돌아가기</a>
+        </p>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+          <a href="https://github.com/beengineer500">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

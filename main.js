@@ -51,8 +51,16 @@
   });
 
   var headings = document.querySelectorAll(".article section > h2");
+
+  // 목차 링크가 걸 수 있도록 id는 항상 부여한다 (수동 목차를 쓰는 글도 필요).
+  headings.forEach(function (h, i) {
+    if (!h.id) h.id = "section-" + (i + 1);
+  });
+
   var tocMount = document.getElementById("toc");
-  if (tocMount && headings.length) {
+  // 본문에 직접 쓴 목차가 있으면 자동 목차는 만들지 않는다.
+  var hasManualToc = document.getElementById("manual-toc");
+  if (tocMount && headings.length && !hasManualToc) {
     var heading = document.createElement("p");
     heading.className = "eyebrow";
     heading.textContent = "contents";
@@ -60,8 +68,7 @@
 
     var list = document.createElement("ol");
     list.className = "toc-list";
-    headings.forEach(function (h, i) {
-      if (!h.id) h.id = "section-" + (i + 1);
+    headings.forEach(function (h) {
       var li = document.createElement("li");
       var a = document.createElement("a");
       a.href = "#" + h.id;

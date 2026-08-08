@@ -569,6 +569,98 @@ img {
   font-weight: 650;
 }
 
+.manual-toc {
+  margin: var(--space-8) 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  padding: var(--space-5) var(--space-6);
+}
+
+.manual-toc h3 {
+  margin: 0 0 var(--space-4);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.manual-toc p {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: 0.9375rem;
+  word-break: keep-all;
+}
+
+.manual-toc p:first-of-type {
+  margin-top: 0;
+}
+
+.manual-toc ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.manual-toc a {
+  text-decoration: none;
+}
+
+.manual-toc a:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.article .callout {
+  margin: var(--space-8) 0;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 6px 6px 0;
+  background: var(--surface-muted);
+  padding: var(--space-4) var(--space-5);
+}
+
+.article .callout > :first-child {
+  margin-top: 0;
+}
+
+.article .callout > :last-child {
+  margin-bottom: 0;
+}
+
+.article .callout > .eyebrow {
+  margin-bottom: var(--space-3);
+}
+
+.article .callout p,
+.article .callout li {
+  font-size: 0.9375rem;
+}
+
+.article figure {
+  margin: var(--space-8) 0;
+}
+
+.article figure img {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+}
+
+.article figcaption {
+  margin-top: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  word-break: keep-all;
+}
+
 .article-back {
   margin-top: var(--space-8);
 }

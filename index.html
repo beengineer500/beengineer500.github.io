@@ -74,18 +74,60 @@
           <!-- BUILD:LATEST_NOTES:START -->
           <article class="note-row">
             <div class="note-meta">
-              <time datetime="2026-07-07">2026.07.07</time>
-              <span>setup</span>
+              <time datetime="2026-08-09">2026.08.09</time>
+              <span>llm</span>
             </div>
             <div class="note-body">
-              <h3><a href="/posts/2026/hello-github-pages/">GitHub Pages로 블로그 열기</a></h3>
+              <h3><a href="/posts/2026/transformer-01-tokenize-embedding/">1편. 텍스트가 벡터가 되기까지 - 토큰화와 임베딩</a></h3>
               <p>
-                GitHub Pages로 개인 정적 블로그를 열 때 필요한 저장소 이름, 파일 구조, 배포 설정을 정리합니다.
+                GPT-2가 입력 문장을 어떻게 숫자로 바꾸는지, 토큰화부터 768차원 임베딩과 위치 인코딩까지 따라갑니다
               </p>
               <div class="note-tags" aria-label="태그">
-                <a href="/categories/setup.html">setup</a>
-                <a href="/tags/github-pages.html">GitHub Pages</a>
-                <a href="/tags/static-site.html">static site</a>
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/transformer.html">transformer</a>
+                <a href="/tags/embedding.html">embedding</a>
+                <a href="/tags/tokenization.html">tokenization</a>
+                <a href="/tags/gpt-2.html">gpt-2</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-08-09">2026.08.09</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/transformer-02-attention/">2편. 어텐션은 실제로 뭘 계산하나</a></h3>
+              <p>
+                셀프 어텐션이 Q와 K와 V를 만들고 내적하고 마스킹하고 Softmax를 거쳐 문맥 벡터를 만들기까지, 그리고 헤드를 12개로 쪼개는 이유
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/transformer.html">transformer</a>
+                <a href="/tags/attention.html">attention</a>
+                <a href="/tags/self-attention.html">self-attention</a>
+                <a href="/tags/gpt-2.html">gpt-2</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-08-09">2026.08.09</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/transformer-03-mlp-and-sampling/">3편. 벡터가 다음 단어가 되기까지 - MLP와 샘플링</a></h3>
+              <p>
+                어텐션 뒤에서 각 토큰을 혼자 다듬는 MLP, 블록을 지탱하는 세 장치, 그리고 마지막 토큰 하나를 5만 개 단어와 대조해 다음 단어를 고르는 과정
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/transformer.html">transformer</a>
+                <a href="/tags/mlp.html">mlp</a>
+                <a href="/tags/softmax.html">softmax</a>
+                <a href="/tags/gpt-2.html">gpt-2</a>
               </div>
             </div>
           </article>

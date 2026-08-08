@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>embedding · beengineer500</title>
+    <meta name="description" content="embedding 태그가 붙은 beengineer500 블로그 메모를 모아둔 페이지입니다." />
+    <link rel="canonical" href="https://beengineer500.github.io/tags/embedding.html" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/" aria-current="page">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell archive-shell" tabindex="-1">
+      <section class="archive-header" aria-labelledby="tag-title">
+        <p class="eyebrow">tag</p>
+        <h1 id="tag-title">embedding</h1>
+        <p class="lead">
+          텍스트를 벡터로 바꾸는 임베딩과 그 벡터 공간에 관한 기록입니다.
+        </p>
+        <p class="status-line">1 note</p>
+      </section>
+
+      <section class="section-block" aria-labelledby="tag-posts-title">
+        <div class="section-heading">
+          <p class="eyebrow">notes</p>
+          <h2 id="tag-posts-title">embedding 메모</h2>
+        </div>
+
+        <div class="note-list">
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-08-09">2026.08.09</time>
+              <a href="/categories/llm.html">llm</a>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/transformer-01-tokenize-embedding/">1편. 텍스트가 벡터가 되기까지 - 토큰화와 임베딩</a></h3>
+              <p>
+                GPT-2가 입력 문장을 어떻게 숫자로 바꾸는지, 토큰화부터 768차원 임베딩과 위치 인코딩까지 따라갑니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/tags/transformer.html">transformer</a>
+                <span>embedding</span>
+                <a href="/tags/tokenization.html">tokenization</a>
+                <a href="/tags/gpt-2.html">gpt-2</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
