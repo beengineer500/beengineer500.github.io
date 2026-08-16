@@ -74,60 +74,60 @@
           <!-- BUILD:LATEST_NOTES:START -->
           <article class="note-row">
             <div class="note-meta">
-              <time datetime="2026-08-09">2026.08.09</time>
+              <time datetime="2026-08-16">2026.08.16</time>
               <span>llm</span>
             </div>
             <div class="note-body">
-              <h3><a href="/posts/2026/transformer-01-tokenize-embedding/">1편. 텍스트가 벡터가 되기까지 - 토큰화와 임베딩</a></h3>
+              <h3><a href="/posts/2026/serving-01-architecture-and-isolation/">서빙 1편. 여섯 컴포넌트 - 프로세스를 나누는 이유</a></h3>
               <p>
-                GPT-2가 입력 문장을 어떻게 숫자로 바꾸는지, 토큰화부터 768차원 임베딩과 위치 인코딩까지 따라갑니다
+                단일 모델 LLM 서빙 시스템이 왜 여섯 조각으로 갈라지는지, 요청 하나가 프로세스 경계를 넘어 돌아오는 길을 따라갑니다
               </p>
               <div class="note-tags" aria-label="태그">
                 <a href="/categories/llm.html">llm</a>
-                <a href="/tags/transformer.html">transformer</a>
-                <a href="/tags/embedding.html">embedding</a>
-                <a href="/tags/tokenization.html">tokenization</a>
-                <a href="/tags/gpt-2.html">gpt-2</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+                <a href="/tags/fastapi.html">fastapi</a>
+                <a href="/tags/multiprocessing.html">multiprocessing</a>
+                <a href="/tags/gpu.html">gpu</a>
               </div>
             </div>
           </article>
 
           <article class="note-row">
             <div class="note-meta">
-              <time datetime="2026-08-09">2026.08.09</time>
+              <time datetime="2026-08-16">2026.08.16</time>
               <span>llm</span>
             </div>
             <div class="note-body">
-              <h3><a href="/posts/2026/transformer-02-attention/">2편. 어텐션은 실제로 뭘 계산하나</a></h3>
+              <h3><a href="/posts/2026/serving-02-static-batching/">서빙 2편. 정적 배칭 - 처리량이 64배 벌어지는 지점</a></h3>
               <p>
-                셀프 어텐션이 Q와 K와 V를 만들고 내적하고 마스킹하고 Softmax를 거쳐 문맥 벡터를 만들기까지, 그리고 헤드를 12개로 쪼개는 이유
+                요청 경계를 무시하고 프롬프트를 다시 묶는 배칭의 원리와, 동시 요청을 1개에서 64개까지 올리며 직접 잰 처리량
               </p>
               <div class="note-tags" aria-label="태그">
                 <a href="/categories/llm.html">llm</a>
-                <a href="/tags/transformer.html">transformer</a>
-                <a href="/tags/attention.html">attention</a>
-                <a href="/tags/self-attention.html">self-attention</a>
-                <a href="/tags/gpt-2.html">gpt-2</a>
+                <a href="/tags/batching.html">batching</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+                <a href="/tags/vllm.html">vllm</a>
+                <a href="/tags/throughput.html">throughput</a>
               </div>
             </div>
           </article>
 
           <article class="note-row">
             <div class="note-meta">
-              <time datetime="2026-08-09">2026.08.09</time>
+              <time datetime="2026-08-16">2026.08.16</time>
               <span>llm</span>
             </div>
             <div class="note-body">
-              <h3><a href="/posts/2026/transformer-03-mlp-and-sampling/">3편. 벡터가 다음 단어가 되기까지 - MLP와 샘플링</a></h3>
+              <h3><a href="/posts/2026/serving-03-streaming-and-vllm/">서빙 3편. 스트리밍과 vLLM - 303줄을 20줄로</a></h3>
               <p>
-                어텐션 뒤에서 각 토큰을 혼자 다듬는 MLP, 블록을 지탱하는 세 장치, 그리고 마지막 토큰 하나를 5만 개 단어와 대조해 다음 단어를 고르는 과정
+                배치 하나에서 나온 토큰을 요청별로 갈라 보내는 SSE 구조와, 직접 만든 서빙 루프를 프레임워크로 갈아탈 때 드러나는 것
               </p>
               <div class="note-tags" aria-label="태그">
                 <a href="/categories/llm.html">llm</a>
-                <a href="/tags/transformer.html">transformer</a>
-                <a href="/tags/mlp.html">mlp</a>
-                <a href="/tags/softmax.html">softmax</a>
-                <a href="/tags/gpt-2.html">gpt-2</a>
+                <a href="/tags/streaming.html">streaming</a>
+                <a href="/tags/sse.html">sse</a>
+                <a href="/tags/vllm.html">vllm</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
               </div>
             </div>
           </article>

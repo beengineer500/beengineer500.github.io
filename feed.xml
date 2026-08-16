@@ -5,6 +5,27 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>서빙 1편. 여섯 컴포넌트 - 프로세스를 나누는 이유</title>
+      <link>https://beengineer500.github.io/posts/2026/serving-01-architecture-and-isolation/</link>
+      <description>단일 모델 LLM 서빙 시스템이 왜 여섯 조각으로 갈라지는지, 요청 하나가 프로세스 경계를 넘어 돌아오는 길을 따라갑니다</description>
+      <pubDate>Sun, 16 Aug 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/serving-01-architecture-and-isolation/</guid>
+    </item>
+    <item>
+      <title>서빙 2편. 정적 배칭 - 처리량이 64배 벌어지는 지점</title>
+      <link>https://beengineer500.github.io/posts/2026/serving-02-static-batching/</link>
+      <description>요청 경계를 무시하고 프롬프트를 다시 묶는 배칭의 원리와, 동시 요청을 1개에서 64개까지 올리며 직접 잰 처리량</description>
+      <pubDate>Sun, 16 Aug 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/serving-02-static-batching/</guid>
+    </item>
+    <item>
+      <title>서빙 3편. 스트리밍과 vLLM - 303줄을 20줄로</title>
+      <link>https://beengineer500.github.io/posts/2026/serving-03-streaming-and-vllm/</link>
+      <description>배치 하나에서 나온 토큰을 요청별로 갈라 보내는 SSE 구조와, 직접 만든 서빙 루프를 프레임워크로 갈아탈 때 드러나는 것</description>
+      <pubDate>Sun, 16 Aug 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/serving-03-streaming-and-vllm/</guid>
+    </item>
+    <item>
       <title>1편. 텍스트가 벡터가 되기까지 - 토큰화와 임베딩</title>
       <link>https://beengineer500.github.io/posts/2026/transformer-01-tokenize-embedding/</link>
       <description>GPT-2가 입력 문장을 어떻게 숫자로 바꾸는지, 토큰화부터 768차원 임베딩과 위치 인코딩까지 따라갑니다</description>

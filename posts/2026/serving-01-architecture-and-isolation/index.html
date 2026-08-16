@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>서빙 1편. 여섯 컴포넌트 - 프로세스를 나누는 이유 · beengineer500</title>
+    <meta name="post-category" content="llm" />
+    <meta name="post-tags" content="llm-serving, fastapi, multiprocessing, gpu" />
+    <meta name="description" content="단일 모델 LLM 서빙 시스템이 왜 여섯 조각으로 갈라지는지, 요청 하나가 프로세스 경계를 넘어 돌아오는 길을 따라갑니다" />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/serving-01-architecture-and-isolation/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell article-shell" tabindex="-1">
+      <article class="article">
+        <header class="article-header">
+          <p class="eyebrow">llm</p>
+          <h1>서빙 1편. 여섯 컴포넌트 - 프로세스를 나누는 이유</h1>
+          <p class="lead">
+            단일 모델 LLM 서빙 시스템이 왜 여섯 조각으로 갈라지는지, 요청 하나가 프로세스 경계를 넘어 돌아오는 길을 따라갑니다
+          </p>
+          <p class="status-line">2026.08.16 · 35 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/llm.html">llm</a>
+            <a href="/tags/llm-serving.html">llm-serving</a>
+            <a href="/tags/fastapi.html">fastapi</a>
+            <a href="/tags/multiprocessing.html">multiprocessing</a>
+            <a href="/tags/gpu.html">gpu</a>
+          </div>
+        </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
+
+        <section>
+<p>트랜스포머 시리즈에서는 토큰 하나가 벡터가 되고, 문맥을 참조해 다음 토큰의 확률이 되는 계산 자체를 따라갔습니다. 그 계산을 실제 요청-응답 서비스로 돌리는 건 다른 문제입니다. 요청은 한 번에 하나만 오지 않고, GPU 한 장은 비싸고, 모델 코드 한 줄이 죽어도 API 서버 전체가 죽으면 안 됩니다.</p>
+<p><code>facebook/opt-125m</code> 하나를 FastAPI로 서빙하는 실습 코드는 여섯 조각으로 갈라져 있습니다. 요청을 받는 <strong>API server</strong>, 그 요청을 조율하는 <strong>LLM engine</strong>, 큐와 배치를 관리하는 <strong>Workload manager</strong>, GPU 워커 프로세스를 기동하는 <strong>Model executor</strong>, 실제 추론을 맡는 별도 프로세스 <strong>Model worker</strong>, 그 안에서 모델과 토크나이저를 불러오는 <strong>Model manager</strong>.</p>
+<hr>
+<nav id="manual-toc" class="manual-toc" aria-label="목차">
+
+<h3>목차</h3>
+<p><strong><a href="#section-1">1부. 서빙은 generate() 호출이 아니다</a></strong></p>
+<ul>
+<li><a href="#s1-1">1.1 단일 모델 서빙의 설계 목표</a></li>
+<li><a href="#s1-2">1.2 여섯 컴포넌트</a></li>
+<li><a href="#s1-3">1.3 GPU 프로세스를 떼어내는 이유</a></li>
+</ul>
+<p><strong><a href="#section-2">2부. 요청 하나가 지나가는 길</a></strong></p>
+<ul>
+<li><a href="#s2-1">2.1 서버가 뜨기 전에 모델을 올린다</a></li>
+<li><a href="#s2-2">2.2 /basic_generate 의 전체 경로</a></li>
+<li><a href="#s2-3">2.3 mp.Queue 두 개로만 통신한다</a></li>
+<li><a href="#s2-4">2.4 프로세스 셋과 GPU 14.5GB</a></li>
+</ul>
+<p><strong><a href="#section-3">3부. 코드를 읽다 걸린 것</a></strong></p>
+<ul>
+<li><a href="#s3-1">3.1 batch_data 라는 이름 - 단건도 크기 1의 배치</a></li>
+<li><a href="#s3-2">3.2 async def 인데 서버가 멈춘다</a></li>
+<li><a href="#s3-3">3.3 힌트와 다른 반환값, 부르는 곳 없는 종료 신호</a></li>
+</ul>
+<p><strong><a href="#section-4">전체 흐름 정리</a></strong> · <strong><a href="#section-5">막혔던 곳</a></strong> · <strong><a href="#section-6">출처</a></strong></p>
+</nav>
+
+<hr>
+</section>
+
+<section>
+<h2>1부. 서빙은 generate() 호출이 아니다</h2>
+<p><a id="s1-1"></a></p>
+<h3>1.1 단일 모델 서빙의 설계 목표</h3>
+<p>노트북에서 <code>model.generate(&quot;안녕하세요&quot;)</code>를 부르면 그 프로세스 하나가 끝날 때까지 아무도 신경 쓸 게 없습니다. 서비스로 바꾸는 순간 조건이 세 개 덧붙습니다.</p>
+<ul>
+<li><strong>요청은 동시에 여러 개 온다</strong><ul>
+<li>스크립트는 한 번에 한 문장만 처리하면 끝나지만, 서비스는 여러 사용자의 요청이 겹쳐 들어오는 걸 전제로 짜야 합니다. 요청 A를 처리하는 도중에 요청 B가 도착하는 게 예외 상황이 아니라 기본값입니다.</li>
+</ul>
+</li>
+<li><strong>GPU는 비싸고 대수가 적다</strong><ul>
+<li>CPU 코어처럼 손쉽게 늘릴 수 있는 자원이 아닙니다. 한 장으로 최대한 많은 요청을 감당해야 하니, GPU가 노는 시간은 그대로 손해입니다. 요청이 없어도 GPU 메모리에 모델은 계속 올라가 있어야 하고, 그 카드를 다른 모델과 나눠 쓰기도 쉽지 않습니다.</li>
+</ul>
+</li>
+<li><strong>모델 프로세스가 죽어도 API는 죽으면 안 된다</strong><ul>
+<li>추론 코드 한 줄이 예외를 던졌다고 서버 전체가 재시작되면, 그 요청과 무관한 다른 사용자의 연결까지 끊깁니다. 모델이 죽는 것과 서버가 죽는 것은 서로 다른 사건이어야 합니다.</li>
+</ul>
+</li>
+</ul>
+<p><strong>왜 중요한가</strong> - 이 세 조건이 이후 모든 구조 선택의 근거입니다. 컴포넌트를 여섯 개로 쪼갠 것도, GPU 연산을 별도 프로세스로 뗀 것도, 프로세스 사이 통신을 큐 두 개로 좁힌 것도 전부 이 세 조건에서 역산됩니다. 반대로 이 세 조건이 없었다면 <code>main.py</code> 한 파일에 <code>model.generate()</code>를 그대로 박아 넣어도 충분했을 겁니다.</p>
+<pre><code>스크립트                          서비스
+한 번에 한 요청                   여러 요청이 겹쳐 들어온다
+프로세스가 끝나면 그만            프로세스는 계속 떠 있어야 한다
+GPU는 그때만 쓰고 놓는다          GPU는 다음 요청을 위해 계속 쥐고 있어야 한다
+죽으면 그 실행만 실패             죽으면 그 순간 떠 있던 모든 요청이 영향받는다
+</code></pre>
+<p>이 표의 오른쪽 칸을 코드로 옮긴 결과가 이 글에서 볼 여섯 컴포넌트입니다. &quot;여러 요청이 겹친다&quot;는 Workload manager의 큐로, &quot;GPU를 계속 쥐고 있어야 한다&quot;는 서버 기동 시점의 모델 로드로, &quot;죽어도 전체가 안 죽어야 한다&quot;는 프로세스 분리로 각각 대응됩니다.</p>
+<p><a id="s1-2"></a></p>
+<h3>1.2 여섯 컴포넌트</h3>
+<p>실습 코드는 책임을 이렇게 나눠뒀습니다.</p>
+<table>
+<thead>
+<tr>
+<th>컴포넌트</th>
+<th>역할</th>
+<th>파일</th>
+<th>줄 수</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API server</td>
+<td>HTTP 요청·응답 처리</td>
+<td><code>main.py</code></td>
+<td>93</td>
+</tr>
+<tr>
+<td>LLM engine</td>
+<td>Workload manager와 Model executor 조율</td>
+<td><code>llm/llm.py</code></td>
+<td>173</td>
+</tr>
+<tr>
+<td>Workload manager</td>
+<td>큐잉과 배치 결정</td>
+<td><code>llm/workload_manager.py</code></td>
+<td>89</td>
+</tr>
+<tr>
+<td>Model executor</td>
+<td>워커 프로세스 기동과 IPC</td>
+<td><code>llm/model_executor.py</code></td>
+<td>71</td>
+</tr>
+<tr>
+<td>Model worker</td>
+<td>별도 프로세스에서 실제 추론</td>
+<td><code>llm/model_worker.py</code></td>
+<td>139</td>
+</tr>
+<tr>
+<td>Model manager</td>
+<td>모델·토크나이저 로드</td>
+<td><code>llm/model_manager.py</code></td>
+<td>15</td>
+</tr>
+</tbody></table>
+<p>각 파일이 실제로 하는 일은 이렇습니다.</p>
+<ul>
+<li><strong>API server(<code>main.py</code>)</strong> - HTTP 요청을 받고 Pydantic으로 검증한 뒤, 결과를 응답 모델로 감싸 돌려주는 것 말고는 하지 않습니다. 판단은 전부 아래로 위임합니다.</li>
+<li><strong>LLM engine(<code>llm.py</code>)</strong> - 이 시스템에서 제일 큰 파일(173줄)입니다. Workload manager에게 다음 배치를 물어보고, Model executor에게 그 배치를 실행시키고, 스트리밍 요청이면 별도 스레드로 토큰을 클라이언트별 큐에 넣어줍니다. 오케스트레이터입니다.</li>
+<li><strong>Workload manager(<code>workload_manager.py</code>)</strong> - 들어온 요청을 <code>queue.Queue</code> 두 개(배치용, 스트리밍용)에 쌓아두고, <code>batch_size = 4</code>라는 상수만큼씩 꺼내 다음 배치를 결정합니다.</li>
+<li><strong>Model executor(<code>model_executor.py</code>)</strong> - 71줄짜리 얇은 파일입니다. 하는 일은 워커 프로세스 하나를 띄우고, 큐 두 개로 그 프로세스와 이야기하는 것뿐입니다.</li>
+<li><strong>Model worker(<code>model_worker.py</code>)</strong> - 실제로 토크나이즈, <code>model.generate()</code>, 디코드를 실행하는 별도 프로세스입니다. 139줄 중 대부분이 이 추론 로직입니다.</li>
+<li><strong>Model manager(<code>model_manager.py</code>)</strong> - 15줄짜리, <code>AutoModelForCausalLM.from_pretrained</code>와 <code>AutoTokenizer.from_pretrained</code>를 부르는 게 전부입니다.</li>
+</ul>
+<figure>
+  <img src="01-six-components.webp" alt="위에서 아래로 API server, LLM engine, Workload manager, Model executor 박스가 이어지고, 굵은 세로 점선 경계 아래 Model worker 박스 안에 Model manager가 작은 글씨로 들어 있는 도식">
+  <figcaption>화면엔 박스가 다섯 개인데 표의 이름은 여섯 개입니다. <strong>Model manager가 독립된 박스가 아니라 Model worker 박스 안에</strong> 들어 있어서입니다. Model worker 프로세스가 뜰 때 그 내부에서 <code>ModelManager().load_model()</code>을 호출해 모델과 토크나이저를 불러오니, 박스 개수와 컴포넌트 개수가 하나 어긋납니다. 가운데를 가로지르는 점선이 <strong>프로세스 경계</strong>입니다. (자작 도식)</figcaption>
+</figure>
+
+<p>경계 왼쪽 넷(API server, LLM engine, Workload manager, Model executor)은 메인 프로세스 안에서 함수 호출로 이어집니다. 경계 오른쪽 둘(Model worker, Model manager)은 <code>mp.Process</code>로 띄운 별도 프로세스 안에 있습니다. 왜 하필 여기에 경계를 그었는지가 다음 절입니다.</p>
+<p>여섯을 넷과 둘로 나눈 기준도 눈여겨볼 만합니다. LLM engine과 Workload manager는 둘 다 메인 프로세스 안에 있지만 굳이 파일을 나눴습니다. LLM engine은 스레드를 띄우고 큐를 조율하는 제어 흐름을 담당하고, Workload manager는 그 밑에서 &quot;지금 배치로 뭘 꺼낼지&quot;라는 순수한 상태 관리만 합니다. 오케스트레이션 로직과 큐 상태를 한 파일에 몰아넣지 않고 나눠두면, Workload manager 하나만 떼어서 배치 결정 로직을 테스트하기가 쉬워집니다.</p>
+<p><a id="s1-3"></a></p>
+<h3>1.3 GPU 프로세스를 떼어내는 이유</h3>
+<aside class="callout">
+<p class="eyebrow">(용어) GIL - Global Interpreter Lock</p>
+
+<p>CPython 인터프리터는 한 프로세스 안에서 한 번에 파이썬 바이트코드 한 줄만 실행합니다. 이 락 때문에 스레드를 여러 개 띄워도 순수 연산은 동시에 돌지 않습니다.</p>
+<ul>
+<li><strong>스레드(Thread)</strong> - 같은 프로세스 안에서 메모리를 공유합니다. I/O 대기 중엔 락을 풀어주지만, 연산끼리는 못 겹칩니다.</li>
+<li><strong>프로세스(Process)</strong> - 각자 별도의 인터프리터, 별도의 GIL을 가집니다. 진짜로 동시에 돕니다.</li>
+</ul>
+<p><code>llm.py</code>가 스트리밍 처리 루프에는 스레드(<code>threading.Thread</code>)를 쓰고 모델 추론에는 프로세스(<code>mp.Process</code>)를 쓰는 이유가 여기서 갈립니다. 큐를 기다리는 I/O는 스레드로 충분하지만, GPU를 실제로 돌리는 연산은 프로세스가 필요합니다.</p>
+</aside>
+
+<p>경계를 여기 그은 이유는 두 가지입니다.</p>
+<ul>
+<li><strong>격리</strong> - Model worker 프로세스가 CUDA 에러나 메모리 부족으로 죽어도 API server 프로세스는 살아 있습니다. FastAPI는 계속 연결을 받고, 다음 요청은 새 워커가 뜨면 다시 처리됩니다. 같은 프로세스 안에 있었다면 워커의 크래시가 곧 서버 전체의 크래시입니다.</li>
+<li><strong>중첩</strong> - 메인 프로세스가 다음 요청을 토크나이즈하거나 이전 응답을 디코드하는 동안, 워커 프로세스는 GPU에서 forward pass를 돌립니다. 하나의 프로세스가 순서대로 처리했다면 이 둘은 절대 겹칠 수 없습니다. CPU 작업과 GPU 작업이 같은 스레드 안에 있으면 GPU가 계산하는 동안 CPU는 다음 할 일을 못 하고 그 계산이 끝나기만 기다립니다.</li>
+</ul>
+<p>격리는 스레드로는 흉내 낼 수 없습니다. 스레드는 같은 주소 공간을 공유하니, CUDA 드라이버가 세그폴트를 일으키거나 GPU 컨텍스트가 오염되면 그 메모리를 같이 보고 있는 API server 스레드까지 함께 죽습니다. GIL이 막는 건 &quot;동시에 계산이 도는 것&quot;이지 &quot;한쪽이 죽으면 다른 쪽도 죽는 것&quot;이 아닙니다. 격리를 얻으려면 애초에 주소 공간이 다른 별도 OS 프로세스여야 하고, 그래서 <code>threading.Thread</code>가 아니라 <code>mp.Process</code>입니다.</p>
+<figure>
+  <img src="02-gpu-idle-vs-isolated.webp" alt="위쪽 간트차트는 토크나이즈, forward, 디코드가 한 줄로 이어지며 forward 구간 사이마다 GPU 유휴 구간이 표시되어 있고, 아래쪽 간트차트는 CPU 행과 GPU 행이 나뉘어 GPU 행이 빈틈없이 이어지는 화면">
+  <figcaption>위쪽처럼 한 프로세스가 순서대로 처리하면 <strong>forward 사이사이 GPU가 비어 있는 구간</strong>이 생깁니다. 토크나이즈·디코드는 CPU 일이라 그 시간 동안 GPU가 할 일이 없어서입니다. 아래쪽처럼 프로세스를 나누면 CPU 행과 GPU 행이 따로 돌아, GPU 행에 빈칸이 사라집니다. GPU는 비싸고 대수가 적다는 1.1절의 전제가 여기서 실제 시간축으로 바뀝니다. (자작 도식)</figcaption>
+</figure>
+
+<hr>
+</section>
+
+<section>
+<h2>2부. 요청 하나가 지나가는 길</h2>
+<p><a id="s2-1"></a></p>
+<h3>2.1 서버가 뜨기 전에 모델을 올린다</h3>
+<p><code>main.py</code>의 <code>__main__</code> 블록을 보면 서버를 띄우기 전에 모델부터 올립니다.</p>
+<pre><code class="language-python">if __name__ == &quot;__main__&quot;:
+    import uvicorn
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Initialize LLM before starting the server
+    get_llm()
+    uvicorn.run(app, host=&quot;0.0.0.0&quot;, port=8000)
+</code></pre>
+<p><code>get_llm()</code>은 <code>multiprocessing.Lock</code>으로 감싼 싱글턴입니다.</p>
+<pre><code class="language-python">def get_llm():
+    global _llm
+    with _llm_lock:
+        if _llm is None:
+            _llm = LLMEngine()
+            # Register cleanup
+            atexit.register(cleanup)
+        return _llm
+</code></pre>
+<p>(<code>main.py:27-34</code>) 락이 있는 이유는 FastAPI의 각 엔드포인트가 <code>Depends(get_llm)</code>으로 이 함수를 매 요청마다 부르기 때문입니다. 락이 없으면 동시에 들어온 요청 두 개가 동시에 <code>_llm is None</code>을 통과해 <code>LLMEngine()</code>을 두 번 만들 수 있습니다. <code>LLMEngine.__init__</code>은 GPU에 모델을 올리고 워커 프로세스를 띄우는 무거운 작업이라, 두 번 실행되면 GPU 메모리가 두 배로 나갑니다.</p>
+<p>그런데 <code>uvicorn.run()</code> 앞에서 <code>get_llm()</code>을 미리 불러버리면, 애초에 락으로 막아야 할 동시 접근 자체가 일어나지 않습니다. 서버가 뜨기 전에 모델을 미리 올려두는 이유는 셋입니다.</p>
+<ul>
+<li><strong>첫 요청자가 로딩을 기다리지 않는다</strong> - 모델을 올리는 15초가 특정 사용자의 응답 시간에 얹히지 않습니다.</li>
+<li><strong>lazy 로딩은 이벤트 루프를 막는다</strong> - 첫 요청이 왔을 때야 모델을 올린다면, 그 로딩 도중엔 이벤트 루프가 통째로 막혀 다른 요청도 같이 멈춥니다.</li>
+<li><strong>&quot;포트가 열렸다 = 준비됐다&quot;가 성립한다</strong> - <code>uvicorn.run()</code> 이전에 로드가 끝나 있으니, 헬스체크가 포트를 확인하는 순간 모델도 이미 응답 가능한 상태입니다.</li>
+</ul>
+<p><code>LLMEngine.__init__</code> 안에서는 <code>model_executor.setup_worker(&quot;facebook/opt-125m&quot;)</code>을 불러 실제 워커 프로세스를 띄웁니다.</p>
+<pre><code class="language-python">def setup_worker(self, model_name: str):
+    logger.debug(f&quot;Setting up worker with model: {model_name}&quot;)
+    self.worker_process = mp.Process(
+        target=ModelWorker.run,
+        args=(model_name, self.task_queue, self.result_queue)
+    )
+    logger.debug(&quot;Starting worker process&quot;)
+    self.worker_process.start()
+    logger.debug(&quot;Worker process started&quot;)
+</code></pre>
+<p>(<code>model_executor.py:23-31</code>) 같은 <code>__init__</code> 안에서 <code>VLLM(model=&quot;facebook/opt-125m&quot;)</code>도 따로 하나 더 만듭니다. HuggingFace 워커와 vLLM 엔진, 두 추론 스택이 동시에 GPU에 올라간다는 뜻입니다. 이게 2.4절에서 프로세스가 둘이 아니라 셋으로 보이는 이유입니다. <code>max_tokens</code>은 20으로 고정돼 있습니다.</p>
+<p>시작할 때뿐 아니라 끝날 때를 대비한 코드도 있습니다. <code>main.py</code>는 시그널 핸들러와 <code>atexit</code> 훅을 같이 등록해둡니다.</p>
+<pre><code class="language-python">def cleanup():
+    global _llm
+    if _llm is not None:
+        try:
+            _llm._cleanup()
+        except:
+            pass
+        _llm = None
+
+def signal_handler(signum, frame):
+    cleanup()
+    exit(0)
+</code></pre>
+<p>(<code>main.py:18-25</code>, <code>82-84</code>) <code>SIGINT</code>나 <code>SIGTERM</code>을 받으면 <code>cleanup()</code>이 불려 <code>_llm._cleanup()</code>으로 이어집니다. 정상 종료를 위한 뼈대는 갖춰져 있는 셈인데, 그 뼈대가 실제로 워커 프로세스까지 정리하는지는 3.3절에서 다시 따라가 봅니다.</p>
+<p>덧붙이면 <code>_llm_lock</code>은 <code>threading.Lock</code>이 아니라 <code>multiprocessing.Lock</code>입니다. 이 서버는 uvicorn을 단일 프로세스, 단일 이벤트 루프 위에서 돌립니다. <code>get_llm()</code> 안에 <code>await</code>가 없으니 이 함수가 실행되는 동안 다른 코루틴이 끼어들 여지가 애초에 없고, 그렇다면 프로세스 간 락까지는 필요 없어 보입니다. 그런데도 <code>multiprocessing.Lock</code>을 채워둔 건, 나중에 uvicorn을 <code>workers=N</code>으로 여러 프로세스로 띄우는 배포까지 미리 대비해둔 모양새입니다. 지금 당장 필요한 락은 아니지만, 구조를 바꿀 때 다시 손대지 않아도 되게 여지를 남겨둔 선택입니다.</p>
+<p><a id="s2-2"></a></p>
+<h3>2.2 /basic_generate 의 전체 경로</h3>
+<p><code>main.py</code>는 엔드포인트 네 개를 노출합니다. <code>/basic_generate</code>(단건), <code>/generate</code>(배치, 최대 4개), <code>/generate_stream</code>(SSE), <code>/generate_vllm</code>(vLLM 직접 호출). 이 글은 <code>/basic_generate</code> 하나만 끝까지 따라갑니다. <code>/generate</code>의 배칭은 2편이, <code>/generate_stream</code>과 <code>/generate_vllm</code>은 3편이 다룹니다.</p>
+<p>요청 하나가 지나가는 길을 파일과 줄 번호로 짚으면 이렇습니다.</p>
+<pre><code>main.py:basic_generate:62-65
+    ↓ llm.basic_generate(request.prompt)
+llm.py:LLMEngine.basic_generate:76-83
+    ↓ Sequence 하나를 리스트에 담아 execute_batch([sequence])
+model_executor.py:execute_batch:33-46
+    ↓ task_queue.put((prompts, False))
+──────────────────── 프로세스 경계 ────────────────────
+model_worker.py:run:115-140
+    ↓ batch_data = task_queue.get()
+model_worker.py:generate:25-66
+    ↓ 토크나이즈 → model.generate() → 디코드
+──────────────────── 프로세스 경계 ────────────────────
+    ↑ result_queue.put((&#39;complete&#39;, results))
+model_executor.py:execute_batch
+    ↑ results = result_queue.get()
+llm.py:basic_generate
+    ↑ results[1][0][&#39;generated_text&#39;]
+main.py:basic_generate
+    ↑ GenerateResponse(generated_text=...)
+</code></pre>
+<p>API server 쪽 코드는 두 줄입니다.</p>
+<pre><code class="language-python">@app.post(&quot;/basic_generate&quot;, response_model=GenerateResponse)
+async def basic_generate(request: GenerateRequest, llm: LLMEngine = Depends(get_llm)):
+    generated_text = llm.basic_generate(request.prompt)
+    return GenerateResponse(generated_text=generated_text)
+</code></pre>
+<pre><code class="language-python">class GenerateRequest(BaseModel):
+    prompt: str
+
+class GenerateResponse(BaseModel):
+    generated_text: str
+</code></pre>
+<p>(<code>main.py:36-40</code>) <code>request: GenerateRequest</code>가 함수 시그니처에 오는 순간 FastAPI가 요청 본문을 이 스키마로 검증합니다. <code>prompt</code> 필드가 없거나 문자열이 아니면 핸들러 코드에 닿기도 전에 422 에러로 되돌아갑니다. <code>llm: LLMEngine = Depends(get_llm)</code>은 FastAPI의 의존성 주입인데, 매 요청마다 <code>get_llm()</code>을 부르지만 2.1절에서 본 싱글턴 덕분에 실제로 새로 만들어지는 건 없고 이미 떠 있는 <code>LLMEngine</code> 인스턴스를 그대로 돌려받습니다.</p>
+<p>LLM engine 쪽에서 받아 처리하는 부분은 이렇습니다.</p>
+<pre><code class="language-python">    def basic_generate(self, prompt: str) -&gt; str:
+
+        sequence = Sequence(str(uuid.uuid4()), prompt, None, None)
+
+        # Execute the batch
+        results = self.model_executor.execute_batch([sequence])
+
+        return results[1][0][&#39;generated_text&#39;]
+</code></pre>
+<p>(<code>llm.py:76-83</code>) 단건 요청 하나가 <code>Sequence</code> 객체 하나로 바뀌고, 그 객체가 크기 1짜리 리스트에 담겨 <code>execute_batch</code>로 넘어갑니다. 이 대목은 3.1절에서 다시 봅니다.</p>
+<p>여기서 눈여겨볼 게 하나 있습니다. 이 경로 어디에도 <strong>Workload manager가 등장하지 않습니다.</strong> <code>basic_generate</code>는 <code>self.workload_manager</code>를 한 번도 부르지 않고 <code>self.model_executor.execute_batch</code>로 곧장 넘어갑니다. 1.2절에서 그린 여섯 컴포넌트는 이 시스템 전체가 갖춘 조각이지만, <code>/basic_generate</code> 하나만 놓고 보면 큐잉과 배치 결정을 맡는 조각은 건너뜁니다. Workload manager가 실제로 일하는 건 <code>/generate</code>의 배치 처리와 스트리밍 쪽이고, 그 이야기는 2편에서 이어집니다.</p>
+<p><a id="s2-3"></a></p>
+<h3>2.3 mp.Queue 두 개로만 통신한다</h3>
+<aside class="callout">
+<p class="eyebrow">(용어) queue.Queue와 multiprocessing.Queue</p>
+
+<p>이름이 비슷하지만 건너는 경계가 다릅니다.</p>
+<ul>
+<li><strong>queue.Queue</strong> - 같은 프로세스 안에서 스레드끼리 값을 주고받습니다. 메모리를 참조 그대로 넘깁니다. <code>workload_manager.py</code>가 씁니다.</li>
+<li><strong>multiprocessing.Queue</strong> - 프로세스 경계를 넘습니다. 값을 pickle로 직렬화해 OS 파이프로 보내고, 받는 쪽이 역직렬화합니다. <code>model_executor.py</code>가 씁니다.</li>
+</ul>
+<p>같은 이름의 <code>.put()</code> / <code>.get()</code>이지만, 뒤에서 일어나는 일은 참조 복사와 직렬화 전송으로 완전히 다릅니다.</p>
+</aside>
+
+<p><code>ModelExecutor</code>가 프로세스 경계를 넘는 통로는 <code>task_queue</code>와 <code>result_queue</code>, 둘뿐입니다.</p>
+<pre><code class="language-python">    def execute_batch(self, prompts: List[Dict[str, Any]]) -&gt; List[Dict[str, Any]]:
+        if not prompts:
+            logger.debug(&quot;Empty batch received&quot;)
+            return []
+
+        logger.debug(f&quot;Sending batch to worker: {prompts}&quot;)
+        # Send batch to worker
+        self.task_queue.put((prompts, False))
+
+        # Get results
+        logger.debug(&quot;Waiting for results from worker&quot;)
+        results = self.result_queue.get()
+        logger.debug(f&quot;Received results from worker: {results}&quot;)
+        return results
+</code></pre>
+<p>(<code>model_executor.py:33-46</code>) 실제로 프로세스 경계를 넘나드는 줄은 <code>task_queue.put(...)</code>과 <code>result_queue.get()</code>, 이 두 줄뿐입니다. 나머지는 전부 로깅이거나 빈 배치 처리입니다.</p>
+<p>두 큐는 <code>ModelExecutor.__init__</code>에서 <code>mp.Queue()</code>로 미리 만들어지고, <code>setup_worker</code>가 <code>mp.Process(target=ModelWorker.run, args=(model_name, self.task_queue, self.result_queue))</code>로 그 큐 객체를 워커 프로세스에 인자로 넘깁니다. 큐를 먼저 만들고 그 참조를 프로세스 생성 인자로 넘기는 순서가 중요합니다. 두 프로세스는 메모리를 공유하지 않으니, <code>mp.Queue</code> 객체 자체가 내부적으로 파일 디스크립터와 락을 pickle로 실어 나를 수 있게 만들어져 있어야 하고, 그래서 프로세스가 뜨기 전에 큐부터 만들어 인자로 건네는 이 순서를 지켜야 합니다.</p>
+<p><strong>왜 중요한가</strong> - IPC 통로가 이 두 줄로 좁혀져 있다는 게 이 구조의 단순함입니다. 메인 프로세스는 워커 프로세스의 내부 구현을 몰라도 되고, 워커 프로세스도 API server의 존재를 몰라도 됩니다. 두 프로세스가 아는 건 오직 큐 두 개의 존재뿐입니다.</p>
+<p>단순한 만큼 짚어야 할 한계도 있습니다. <code>mp.Queue()</code>는 크기 제한 없이 만들어져 있습니다. <code>task_queue</code>에 넣는 속도가 워커가 처리하는 속도보다 빠르면, 큐에 쌓인 항목이 계속 늘어나며 메모리를 먹습니다. <code>/basic_generate</code>처럼 요청 하나가 처리를 마칠 때까지 다음 <code>execute_batch</code> 호출 자체가 <code>result_queue.get()</code>에 막혀 있는 구조에서는 실제로 이 문제가 잘 드러나지 않지만, 큐 앞단에 요청을 쌓아두고 계속 흘려보내는 구조로 바뀌면 큐 크기에 상한이 없다는 게 그대로 위험 요인이 됩니다.</p>
+<p><a id="s2-4"></a></p>
+<h3>2.4 프로세스 셋과 GPU 14.5GB</h3>
+<p>실제로 서버를 띄우고 확인하면 이렇습니다.</p>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/basic_generate \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;prompt&quot;: &quot;Hello, I am&quot;}&#39;
+</code></pre>
+<pre><code>{&quot;generated_text&quot;: &quot;Hello, I am a student at the University of California, Berkeley...&quot;}
+</code></pre>
+<p>기동 로그에는 <code>model.safetensors</code> 251MB를 내려받는 줄과 vLLM의 <code>init engine</code> 15.36초가 찍힙니다. <code>init engine</code>은 <code>LLMEngine.__init__</code> 안에서 <code>VLLM(model=...)</code>을 생성하는 동안 vLLM이 내부적으로 GPU 메모리 프로파일링과 KV 캐시 크기 계산을 마치는 시간입니다. 이 15.36초가 2.1절에서 &quot;서버가 뜨기 전에 모델을 올리는&quot; 이유 중 하나인 &quot;첫 요청자가 로딩을 기다리지 않는다&quot;를 실측치로 보여줍니다. 이 시간이 첫 요청의 응답 시간에 얹혔다면 사용자는 15초 넘게 기다렸을 겁니다.</p>
+<p>프로세스는 셋입니다.</p>
+<table>
+<thead>
+<tr>
+<th>PID</th>
+<th>역할</th>
+<th>GPU 메모리</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>30195</td>
+<td>부모, uvicorn + FastAPI</td>
+<td>-</td>
+</tr>
+<tr>
+<td>30237</td>
+<td>자식, ModelWorker(HuggingFace)</td>
+<td>788MiB</td>
+</tr>
+<tr>
+<td>30323</td>
+<td>자식, vLLM EngineCore</td>
+<td>13,762MiB</td>
+</tr>
+</tbody></table>
+<p><code>nvidia-smi</code>로 보면 RTX 4070 Ti Super 16,376MiB 중 14,581MiB를 쓰고 있는데, <strong>GPU-Util은 0%</strong> 입니다. 요청을 하나도 안 보낸 상태라 GPU는 메모리만 쥐고 계산은 안 하고 있다는 뜻입니다. 1.3절에서 그린 &quot;GPU가 비는 구간&quot;이 여기서는 애초에 계산이 시작도 안 한 상태로 나타납니다.</p>
+<p>13,762MiB라는 vLLM 프로세스의 메모리가 눈에 띄게 큽니다. <code>opt-125m</code>의 가중치 파일 자체는 251MB, GiB로 환산하면 0.24GiB에 불과합니다. 차이가 나는 이유는 vLLM의 <code>gpu_memory_utilization</code> 기본값이 0.9라서입니다. vLLM은 시작할 때 GPU 전체 메모리의 90%를 미리 확보해 KV 캐시 자리로 잡아둡니다. 이 카드에서는 그 결과로 356,816 토큰치의 KV 캐시 공간이 잡힙니다.</p>
+<pre><code>가중치 파일         0.24GiB   (model.safetensors, 251MB)
+vLLM 프로세스 실사용  13.44GiB  (13,762MiB, gpu_memory_utilization=0.9로 선점)
+                        └── 차이 대부분이 KV 캐시 예약분 (356,816 토큰)
+</code></pre>
+<p><strong>모델은 작은데 프로세스가 쥔 메모리는 크다</strong>는 게, 가중치 크기만으로 GPU 메모리를 가늠하면 안 되는 이유입니다. 이 실습 코드는 <code>LLMEngine.__init__</code> 안에서 HuggingFace 워커와 vLLM 엔진을 동시에 올려두기 때문에, 실제로는 한 모델을 두 번 서빙할 준비를 하고 있는 셈이고 GPU 메모리도 그만큼 이중으로 나갑니다.</p>
+<p>1.1절에서 &quot;GPU는 비싸고 대수가 적다&quot;고 했던 전제를 여기 다시 대입해보면, 이 이중 로드는 학습용 코드라서 봐줄 수 있는 비효율입니다. 실서비스라면 <code>/basic_generate</code>·<code>/generate</code>가 쓰는 HuggingFace 경로와 <code>/generate_vllm</code>이 쓰는 vLLM 경로 중 하나만 남기고 나머지를 걷어내는 편이, 788MiB와 13,762MiB를 동시에 쥐고 있는 지금보다 같은 카드로 더 많은 요청을 받을 수 있는 방법입니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>3부. 코드를 읽다 걸린 것</h2>
+<p><a id="s3-1"></a></p>
+<h3>3.1 batch_data 라는 이름 - 단건도 크기 1의 배치</h3>
+<p><code>WorkloadManager</code>가 정의하는 <code>Sequence</code>는 이렇게 생겼습니다.</p>
+<pre><code class="language-python">class Sequence:
+    def __init__(self, seq_id: str, prompt: str, client_stream, loop):
+        self.id = seq_id
+        self.prompt = prompt
+        self.output = []
+        self.finished = False
+        self.loop = loop
+        self.client_stream = client_stream
+        self.token_count = 0
+</code></pre>
+<p>(<code>workload_manager.py:6-14</code>) <code>client_stream</code>과 <code>loop</code>은 스트리밍 요청에서만 값이 채워지는 필드입니다. <code>/basic_generate</code>는 단건 동기 요청이라 <code>Sequence(str(uuid.uuid4()), prompt, None, None)</code>처럼 두 필드에 그냥 <code>None</code>을 넣습니다. 스트리밍용 필드가 있는 같은 클래스를 단건 요청에도 그대로 씁니다.</p>
+<p><code>ModelExecutor.execute_batch</code>가 큐에 태워 보내는 값은 <code>(prompts, False)</code>라는 튜플이고, 워커 쪽에서 이걸 받는 변수 이름이 <code>batch_data</code>입니다.</p>
+<pre><code class="language-python">            batch_data = task_queue.get()
+            logger.debug(f&quot;Received batch: {batch_data}&quot;)
+
+            if batch_data is None:  # Shutdown signal
+                logger.debug(&quot;Received shutdown signal&quot;)
+                break
+
+            batch, is_streaming = batch_data
+</code></pre>
+<p>(<code>model_worker.py:124-133</code>) <code>/basic_generate</code>는 프롬프트 하나짜리 요청인데도 2.2절에서 본 것처럼 <code>execute_batch([sequence])</code>로 <strong>리스트에 담아</strong> 보냅니다. 워커 입장에서는 요청이 몇 건이었는지 알 필요가 없습니다. <code>generate()</code>가 받는 <code>prompts</code> 인자는 항상 리스트이고, 토크나이저의 <code>padding=True</code>도 원소가 하나든 넷이든 똑같이 동작합니다.</p>
+<p>단건을 다건의 특수한 경우(크기 1의 배치)로 취급하면 워커 쪽 코드가 단건용과 배치용 두 벌로 갈라지지 않습니다. <code>batch_data</code>라는 이름이 단건 요청에도 그대로 붙는 게 이 설계의 흔적입니다.</p>
+<p>대가도 있습니다. 원소 하나짜리 배치는 배칭이 주는 이득(GPU 한 번의 forward pass로 여러 요청을 처리하는 것) 없이, 토크나이저의 <code>padding=True</code>·<code>truncation=True</code> 같은 배치 전용 인자만 그대로 통과합니다. 패딩할 다른 시퀀스가 없으니 패딩은 사실상 no-op이지만, 코드 경로는 크기 4짜리 배치와 완전히 동일하게 돕니다. 코드가 한 벌로 끝나는 대신, 단건 처리에서 배치 처리 코드를 매번 통과하는 비용을 치르는 셈입니다.</p>
+<p><a id="s3-2"></a></p>
+<h3>3.2 async def 인데 서버가 멈춘다</h3>
+<p><code>basic_generate</code>는 <code>async def</code>로 선언돼 있습니다. 그런데 이 함수가 처리되는 동안 다른 요청은 전혀 못 받습니다.</p>
+<pre><code>현재 상태   async def 로 선언된 엔드포인트
+                ↓
+목표 상태   그 요청을 처리하는 동안 다른 요청도 같이 서비스된다
+                ↓
+실제        결과가 돌아올 때까지 이벤트 루프 전체가 멈춘다
+</code></pre>
+<p>이유는 이 호출 경로 안 어디에도 <code>await</code>가 없기 때문입니다. asyncio의 이벤트 루프는 단일 스레드 위에서 코루틴 여러 개를 번갈아 실행하는 <strong>협조적 스케줄링</strong>입니다. &quot;협조적&quot;이라는 말은 각 코루틴이 알아서 제어권을 돌려줘야 다음 코루틴 차례가 온다는 뜻입니다. <code>async def</code>는 코루틴을 만든다는 보장일 뿐, 그 안에서 <code>await</code>로 제어권을 이벤트 루프에 돌려주지 않으면 이벤트 루프는 그 함수가 끝날 때까지 다른 어떤 코루틴도 실행하지 못합니다. 협조하기로 약속된 자리에서 협조를 안 하는 셈입니다. <code>basic_generate</code> → <code>llm.basic_generate</code> → <code>execute_batch</code>로 이어지는 경로의 끝은 <code>result_queue.get()</code>이고, 이건 순수한 블로킹 호출이라 양보 지점이 0입니다.</p>
+<figure>
+  <img src="03-async-blocking.webp" alt="위쪽 줄은 요청A 시작과 양보 지점을 거쳐 요청B가 시작되는 타임라인이고, 아래쪽 줄은 요청A가 블로킹 구간을 통째로 차지해 요청B가 그 뒤에야 시작되는 타임라인">
+  <figcaption><code>await</code>가 있으면 요청A가 양보하는 순간 요청B가 끼어듭니다. <code>await</code>가 없으면 요청A의 블로킹 구간 전체가 끝나야 요청B가 시작됩니다. 이 코드에서 <code>await</code>를 제대로 쓴 곳은 <code>/generate_stream</code>의 <code>await queue.get()</code> 하나뿐이라, 나머지 엔드포인트는 전부 아래쪽 타임라인을 따릅니다. (자작 도식)</figcaption>
+</figure>
+
+<p>그렇다고 동기 호출 자체가 문제인 건 아닙니다. <code>WorkloadManager.get_next_batch</code>도 내부적으로 <code>queue.Queue.get()</code>을 쓰지만, <code>empty()</code>로 먼저 확인하고 나서만 부르기 때문에 즉시 돌아옵니다.</p>
+<pre><code class="language-python">            while len(self.active_sequences) &lt; self.batch_size and not self.incoming_queue.empty():
+                sequence = self.incoming_queue.get()
+                self.active_sequences.append(sequence)
+</code></pre>
+<p>(<code>workload_manager.py:50-52</code>) 반면 <code>execute_batch</code>의 <code>result_queue.get()</code>은 이런 가드가 없어서 GPU가 forward pass를 끝낼 때까지 몇 초든 그대로 기다립니다. <strong>동기식 호출 자체가 죄가 아니라, 동기식 호출이 오래 걸리는 게 죄</strong>입니다. 짧게 끝나는 동기 호출은 이벤트 루프를 막아도 티가 안 나고, 몇 초짜리 동기 호출이 <code>await</code> 없이 코루틴 안에 들어가면 서버 전체가 그만큼 멈춥니다. 고치는 방법(예: <code>asyncio.to_thread</code>로 블로킹 호출을 별도 스레드에 넘기기)은 이 글의 범위 밖입니다. 여기서는 왜 멈추는지 원인만 짚습니다.</p>
+<p><a id="s3-3"></a></p>
+<h3>3.3 힌트와 다른 반환값, 부르는 곳 없는 종료 신호</h3>
+<p><code>execute_batch</code>의 타입 힌트는 2.3절에서 본 것처럼 <code>List[Dict[str, Any]]</code>입니다. 그런데 실제로 큐를 타고 돌아오는 값은 리스트가 아니라 튜플입니다. 워커 쪽 마지막 분기를 보면 이렇습니다.</p>
+<pre><code class="language-python">            if is_streaming:
+                # Handle streaming generation
+                result_queue.put((&#39;stream&#39;, worker.generate_forward_batch(batch)))
+            else:
+                # Handle regular generation
+                result_queue.put((&#39;complete&#39;, worker.generate(batch)))
+</code></pre>
+<p>(<code>model_worker.py:135-140</code>) 항상 <code>(&#39;complete&#39;, 결과리스트)</code> 꼴의 튜플이 올라갑니다. 그래서 <code>llm.py:83</code>의 반환문이 <code>results[0]</code>이 아니라 <code>results[1][0][&#39;generated_text&#39;]</code>로 한 칸 더 들어가 있는 겁니다. <code>results[0]</code>은 <code>&#39;complete&#39;</code>라는 문자열이고, 실제 결과 리스트는 <code>results[1]</code>에 있습니다. 타입 힌트만 보고 <code>execute_batch</code>가 리스트를 돌려준다고 믿으면, 왜 호출부마다 <code>[1]</code>을 붙이는지 코드를 직접 열어보기 전까진 알 수 없습니다.</p>
+<p>종료 처리에는 이 코드베이스에 종료 메커니즘이 사실 <strong>두 벌</strong> 있다는 게 더 걸립니다. 하나는 2.1절에서 본 <code>atexit.register(cleanup)</code>으로 이어지는 경로입니다.</p>
+<pre><code class="language-python">    def _cleanup(self):
+        &quot;&quot;&quot;Cleanup function to be called when the program exits.&quot;&quot;&quot;
+        # The thread will be automatically terminated since it&#39;s a daemon thread
+        pass
+</code></pre>
+<p>(<code>llm.py:70-73</code>) <code>cleanup()</code> → <code>_llm._cleanup()</code>으로 불리는 이 함수는 주석만 남기고 몸통이 <code>pass</code>입니다. 데몬 스레드는 프로세스가 죽으면 같이 죽는다는 설명은 맞지만, 정작 별도 프로세스인 Model worker는 데몬 스레드가 아니라서 이 설명이 적용되지 않습니다. 워커 프로세스를 정리하는 코드는 여기 없습니다.</p>
+<p>다른 하나는 <code>model_worker.py:129</code>의 <code>None</code> 수신 분기입니다.</p>
+<pre><code class="language-python">            if batch_data is None:  # Shutdown signal
+                logger.debug(&quot;Received shutdown signal&quot;)
+                break
+</code></pre>
+<p>이 저장소 전체를 뒤져도 <code>task_queue.put(None)</code>을 호출하는 곳이 없습니다. <code>task_queue.put</code>은 <code>execute_batch</code>와 <code>execute_forward_batch</code> 두 곳에서만 쓰이고, 둘 다 <code>(prompts, False)</code> 또는 <code>(prompts, True)</code>만 보냅니다. 실제로 워커 프로세스를 정리하는 건 <code>ModelExecutor.__del__</code>입니다.</p>
+<pre><code class="language-python">    def __del__(self):
+        if self.worker_process:
+            logger.debug(&quot;Terminating worker process&quot;)
+            self.worker_process.terminate()
+            self.worker_process.join()
+            logger.debug(&quot;Worker process terminated&quot;)
+</code></pre>
+<p>(<code>model_executor.py:67-72</code>) <code>terminate()</code>는 OS 시그널로 프로세스를 강제 종료하는 하드 킬이고, 이 함수는 가비지 컬렉션이 <code>ModelExecutor</code> 객체를 회수할 때 불립니다. 문제는 파이썬에서 <code>__del__</code>이 언제 불릴지는 보장되지 않는다는 점입니다. CPython은 대개 참조 카운트가 0이 되는 순간 즉시 회수하지만, 인터프리터가 종료되는 시점에는 객체들의 소멸 순서가 뒤섞일 수 있고 순환 참조가 있으면 아예 늦게 불리거나 건너뛸 수도 있습니다. <code>atexit.register(cleanup)</code>이 명시적으로 순서를 정해 부르는 훅인 것과 달리, <code>__del__</code>은 &quot;언젠가 회수될 때&quot; 불리는 훅이라 종료 타이밍을 코드가 통제하지 못합니다.</p>
+<p>정리하면 종료 경로가 이렇게 세 갈래로 나뉘어 있습니다. <code>atexit</code>으로 등록된 <code>cleanup()</code>은 아무것도 안 하고, 워커가 스스로 우아하게 빠져나가는 <code>None</code> 분기는 아무도 트리거하지 않고, 실제 정리는 타이밍이 보장되지 않는 <code>__del__</code>의 강제 종료 하나뿐입니다. 종료를 우아하게 하려는 흔적은 코드 두 군데에 남아 있지만, 실제로 실행되는 건 셋 중 가장 거칠고 가장 불확실한 방법입니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>전체 흐름 정리</h2>
+<pre><code>서버가 뜨기 전
+    get_llm() → LLMEngine() → setup_worker() 로 워커 프로세스 기동      ← 2.1
+    facebook/opt-125m 을 HuggingFace 워커와 vLLM 엔진, 두 스택에 로드
+
+요청 도착 (/basic_generate)
+    main.py:basic_generate            async def 인데 await 없음         ← 3.2
+        ↓
+    llm.py:basic_generate             Sequence 1개를 [sequence] 로 감싼다 ← 3.1
+        ↓
+    model_executor.py:execute_batch   task_queue.put((prompts, False))  ← 2.3
+        │
+    ─── 프로세스 경계 ───
+        ↓
+    model_worker.py:run                batch_data = task_queue.get()     ← 3.1
+    model_worker.py:generate            토크나이즈 → model.generate() → 디코드
+        ↓
+    result_queue.put((&#39;complete&#39;, results))                             ← 3.3
+        │
+    ─── 프로세스 경계 ───
+        ↓
+    execute_batch                     results = result_queue.get() (블로킹) ← 3.2
+    llm.py:basic_generate             results[1][0][&#39;generated_text&#39;]    ← 3.3
+    main.py:basic_generate            GenerateResponse 로 응답
+</code></pre>
+<p>한 줄로 줄이면 이렇습니다. <strong>API server부터 Model executor까지 넷은 한 프로세스 안 함수 호출로 이어지고, Model worker와 Model manager는 별도 프로세스에서 mp.Queue 두 개로만 그 넷과 이야기합니다.</strong></p>
+<p>세 부의 공통점이 하나 있습니다. <strong>어느 것도 <code>/basic_generate</code>가 돌려주는 텍스트 자체를 바꾸지 않았습니다.</strong> 컴포넌트를 여섯으로 쪼갠 것도, GIL을 피해 GPU 연산을 별도 프로세스로 뗀 것도, 프로세스 사이 통신을 큐 두 개로 좁힌 것도 전부 정답이 아니라 <strong>그 정답에 도달하는 방식</strong>을 다루는 이야기였습니다. 3부에서 본 틈들(단건도 배치로 취급하는 것, <code>await</code> 없는 코루틴, 힌트와 다른 반환값, 호출되지 않는 종료 신호) 역시 결과 텍스트에는 영향을 주지 않습니다. 대신 그 결과가 얼마나 빨리, 얼마나 안전하게 돌아오는지에 영향을 줍니다.</p>
+<p>기억할 숫자 넷을 정리해 둡니다.</p>
+<table>
+<thead>
+<tr>
+<th>숫자</th>
+<th>뜻</th>
+<th>왜 중요한가</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>6개 컴포넌트, 박스 5개</strong></td>
+<td>Model manager가 Model worker 프로세스 안에 있다</td>
+<td>프로세스 경계가 컴포넌트 경계와 정확히 겹치지 않는다</td>
+</tr>
+<tr>
+<td><strong>mp.Queue 2개</strong></td>
+<td>task_queue와 result_queue, 프로세스 경계를 넘는 통로는 이것뿐</td>
+<td>IPC 표면이 좁아 두 프로세스가 서로의 내부를 몰라도 된다</td>
+</tr>
+<tr>
+<td><strong>프로세스 3개, GPU 14.58GB</strong></td>
+<td>부모(uvicorn) + 자식(ModelWorker 788MiB) + 자식(vLLM EngineCore 13,762MiB)</td>
+<td>같은 <strong>init</strong> 안에서 두 추론 스택을 동시에 올려서다</td>
+</tr>
+<tr>
+<td><strong>GPU-Util 0%</strong></td>
+<td>모델은 올라와 있는데 계산은 하나도 안 돈다</td>
+<td>프로세스를 나눈 것과 GPU를 놀리지 않는 것은 별개 문제다</td>
+</tr>
+</tbody></table>
+<hr>
+</section>
+
+<section>
+<h2>막혔던 곳</h2>
+<p><strong>이름이 <code>batch_data</code>인데 단건 요청도 여기로 오나?</strong> 옵니다. <code>llm.py:78-81</code>이 <code>[sequence]</code>로 감싸 크기 1의 배치로 만듭니다. 단건을 다건의 특수한 경우로 취급해 워커 코드가 한 벌로 끝납니다.</p>
+<p><strong><code>async def</code>인데 왜 한 요청을 처리하는 동안 다른 요청을 못 받나?</strong> 안에 <code>await</code>가 없습니다. <code>result_queue.get()</code>은 블로킹 호출이라 양보 지점이 0입니다. 이 코드에서 <code>await</code>를 제대로 쓴 곳은 <code>/generate_stream</code>의 <code>await queue.get()</code> 하나뿐입니다.</p>
+<p><strong>그럼 동기 호출은 다 나쁜가?</strong> 아닙니다. <code>get_next_batch</code>의 <code>get()</code>은 <code>empty()</code> 가드가 있어 즉시 돌아옵니다. <code>execute_batch</code>의 <code>get()</code>은 가드 없이 GPU 완료를 몇 초 기다립니다. <strong>동기식 자체는 죄가 아닙니다. 동기 + 오래 기다림이 죄입니다.</strong></p>
+<p><strong>타입 힌트는 <code>List[Dict]</code>인데 호출부는 왜 <code>results[1]</code>로 꺼내나?</strong> 실제 반환값이 <code>(&#39;complete&#39;, results)</code> 튜플이라서입니다. 힌트를 믿지 말고 실제 반환값을 찍어봐야 합니다.</p>
+<p><strong>워커에 종료 신호를 받는 코드가 있는데 왜 안 죽나?</strong> <code>model_worker.py:129</code>에 <code>None</code>을 받으면 <code>break</code>하는 코드가 있는데, <code>task_queue.put(None)</code>을 부르는 곳이 코드 전체에 없습니다. <code>__del__</code>은 <code>terminate()</code>만 합니다.</p>
+<p><strong>왜 서버가 뜨기 전에 모델을 미리 로드하나?</strong> 셋입니다. 첫 요청자가 로딩을 기다리지 않고, lazy로 두면 로딩하는 동안 이벤트 루프가 막혀 서버 전체가 무응답이 되고, <code>uvicorn.run()</code> 전에 로드하면 &quot;포트가 열렸다 = 진짜 준비됐다&quot;가 성립합니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>출처</h2>
+<ul>
+<li>스터디 교재, Model Serving System Design 3장</li>
+<li>실습 코드, <a href="https://github.com/orca3/llm-model-inference">https://github.com/orca3/llm-model-inference</a></li>
+<li>vLLM 문서, <a href="https://docs.vllm.ai">https://docs.vllm.ai</a></li>
+<li>서빙 구조를 이해하면서 참고한 글 — <a href="https://devlos.tistory.com/128">devlos.tistory.com/128</a></li>
+</ul>
+</section>
+
+        <p class="article-back">
+          <a href="/posts/">글 인덱스로 돌아가기</a>
+        </p>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+          <a href="https://github.com/beengineer500">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
