@@ -26,13 +26,6 @@
       <guid>https://beengineer500.github.io/posts/2026/serving-03-streaming-and-vllm/</guid>
     </item>
     <item>
-      <title>서빙 4편. 멀티 모델 - LRU 캐시와 Triton 위임</title>
-      <link>https://beengineer500.github.io/posts/2026/serving-04-multi-model-and-triton/</link>
-      <description>한 서비스가 여러 모델을 나눠 쓰는 구조와, 무엇을 메모리에 올려둘지 정하는 캐시 정책, 그리고 비용과 지연 사이의 맞바꿈</description>
-      <pubDate>Sun, 16 Aug 2026 00:00:00 GMT</pubDate>
-      <guid>https://beengineer500.github.io/posts/2026/serving-04-multi-model-and-triton/</guid>
-    </item>
-    <item>
       <title>1편. 텍스트가 벡터가 되기까지 - 토큰화와 임베딩</title>
       <link>https://beengineer500.github.io/posts/2026/transformer-01-tokenize-embedding/</link>
       <description>GPT-2가 입력 문장을 어떻게 숫자로 바꾸는지, 토큰화부터 768차원 임베딩과 위치 인코딩까지 따라갑니다</description>

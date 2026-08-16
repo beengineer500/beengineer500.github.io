@@ -50,7 +50,7 @@ tags: streaming, sse, vllm, llm-serving
 
 ### 1.1 전체 생성을 기다리는 비용
 
-1편 1.2절에서 그린 여섯 컴포넌트, 2편 1.1~1.2절에서 만든 배치 재구성 — 이 둘이 맞물려 돌아가는 결과가 `/generate`입니다. 문제는 사용자가 보는 화면입니다. `llm.py`의 `self.max_tokens = 20`이 뜻하는 건, 요청 하나가 응답을 받기까지 **생성 스텝 20번이 전부 끝나야 한다**는 것입니다. 2편 1.1~1.2절에서 만든 배치가 다 돌 때까지 화면에는 아무 글자도 없습니다.
+1편 1.2절에서 그린 여섯 컴포넌트, 2편 1.1-1.2절에서 만든 배치 재구성 — 이 둘이 맞물려 돌아가는 결과가 `/generate`입니다. 문제는 사용자가 보는 화면입니다. `llm.py`의 `self.max_tokens = 20`이 뜻하는 건, 요청 하나가 응답을 받기까지 **생성 스텝 20번이 전부 끝나야 한다**는 것입니다. 2편 1.1-1.2절에서 만든 배치가 다 돌 때까지 화면에는 아무 글자도 없습니다.
 
 여기서 짚어야 할 게 하나 있습니다. **스트리밍은 이 20번의 계산량을 줄이지 않습니다.** 모델이 하는 일은 그대로입니다. 바뀌는 건 그 20개 토큰을 **한 번에 몰아서 줄지, 하나씩 흘려보낼지**뿐입니다. 첫 글자가 화면에 뜨는 시점(time to first token)이 당겨질 뿐, 마지막 글자가 뜨는 시점은 그대로입니다.
 
@@ -343,7 +343,7 @@ def generate_vllm(self, prompts: List[str]) -> List[str]:
 
 303줄이 하던 일을 vLLM 내부의 이름으로 대응시켜보면 이렇습니다.
 
-- **`workload_manager.py`의 배치 재구성(2편 1.1~1.2절)** → vLLM의 스케줄러가 담당합니다. 요청을 큐에 쌓고 배치로 묶는 역할이 같습니다
+- **`workload_manager.py`의 배치 재구성(2편 1.1-1.2절)** → vLLM의 스케줄러가 담당합니다. 요청을 큐에 쌓고 배치로 묶는 역할이 같습니다
 - **`model_worker.py`의 `use_cache=False`(2부)** → vLLM은 PagedAttention으로 KV 캐시를 관리합니다. 캐시를 안 쓰는 선택지가 아예 없다는 게 이 시리즈가 손으로 짠 버전과 가장 다른 점입니다
 - **`model_executor.py`의 프로세스 간 큐(1편 2.4절)** → vLLM 안에서도 별도 워커로 나뉘지만, 그 경계를 우리 코드가 신경 쓸 필요가 없어집니다
 
@@ -489,7 +489,7 @@ Part C  모델 실행       ─ 양자화 · KV 캐시 · continuous batching
 
 <figure>
   <img src="03-three-layer-design.webp" alt="위에서부터 Part A 서비스 인프라, Part B 비즈니스 로직, Part C 모델 실행 세 개의 박스가 쌓여 있고 각 박스 아래 담당 요소가 나열된 도식">
-  <figcaption>1~3편에서 만든 <code>WorkloadManager</code>, <code>ModelExecutor</code>, SSE 브리지, vLLM 연동은 전부 <strong>Part B</strong> 한 칸입니다. 로드밸런서나 복제는 이 시리즈가 건드린 적이 없고, <code>ModelWorker</code>가 하던 forward 자체도 3부에서 vLLM에 넘기면서 사실상 Part C로 이관됐습니다. 세 칸 중 어디를 만들고 있었는지가 여기서 정리됩니다. (자작 도식)</figcaption>
+  <figcaption>1-3편에서 만든 <code>WorkloadManager</code>, <code>ModelExecutor</code>, SSE 브리지, vLLM 연동은 전부 <strong>Part B</strong> 한 칸입니다. 로드밸런서나 복제는 이 시리즈가 건드린 적이 없고, <code>ModelWorker</code>가 하던 forward 자체도 3부에서 vLLM에 넘기면서 사실상 Part C로 이관됐습니다. 세 칸 중 어디를 만들고 있었는지가 여기서 정리됩니다. (자작 도식)</figcaption>
 </figure>
 
 Part B가 Part C에 직접 forward를 요청하지 않고 vLLM이라는 별도 프로세스를 통하는 구조는, 1편 2.4절에서 본 그 프로세스 분리의 연장입니다. 다만 이번에는 분리의 이유가 GPU 유휴 방지가 아니라 **양자화와 KV 캐시 관리라는 전문 영역을 프레임워크에 위임**하는 것입니다.
