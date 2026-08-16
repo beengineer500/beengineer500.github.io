@@ -24,6 +24,9 @@
     "vllm": "vLLM의 배칭·메모리 선점 동작을 직접 재보고 비교한 기록입니다.",
     "throughput": "동시 요청 수를 올려가며 처리량과 지연을 실측한 기록입니다.",
     "streaming": "생성된 토큰을 기다리지 않고 바로 흘려보내는 스트리밍 기록입니다.",
-    "sse": "Server-Sent Events로 토큰을 요청별로 갈라 보내는 구조의 기록입니다."
+    "sse": "Server-Sent Events로 토큰을 요청별로 갈라 보내는 구조의 기록입니다.",
+    "multi-model-serving": "한 서비스가 여러 모델을 공유 자원에서 나눠 서빙하는 구조의 기록입니다.",
+    "triton": "NVIDIA Triton Inference Server에 모델 로딩과 추론을 위임한 기록입니다.",
+    "lru-cache": "무엇을 메모리에 남길지 정하는 LRU 축출 정책의 기록입니다."
   }
 }
