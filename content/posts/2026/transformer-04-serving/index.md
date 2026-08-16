@@ -1,5 +1,5 @@
 ---
-title: 4편. 서빙에서 어텐션 비용 줄이기 - KV Cache와 prefill과 Flash Attention
+title: 트랜스포머 4편. 서빙에서 어텐션 비용 줄이기 - KV Cache와 prefill과 Flash Attention
 description: 토큰 하나 뽑을 때마다 반복되는 어텐션 계산을 KV Cache로 없애고, 첫 계산을 prefill로 나누고, Flash Attention으로 메모리 이동을 줄이는 방법
 date: 2026-08-09
 category: llm
