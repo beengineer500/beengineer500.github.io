@@ -181,7 +181,7 @@ GPU는 그때만 쓰고 놓는다          GPU는 다음 요청을 위해 계속
 <li><strong>Model manager(<code>model_manager.py</code>)</strong> - 15줄짜리, <code>AutoModelForCausalLM.from_pretrained</code>와 <code>AutoTokenizer.from_pretrained</code>를 부르는 게 전부입니다.</li>
 </ul>
 <figure>
-  <img src="01-six-components.webp" alt="위에서 아래로 API server, LLM engine, Workload manager, Model executor 박스가 이어지고, 굵은 세로 점선 경계 아래 Model worker 박스 안에 Model manager가 작은 글씨로 들어 있는 도식">
+  <img src="01-six-components.webp" alt="왼쪽에 API server가 있고 오른쪽 열에 Workload manager, LLM engine, Model executor가 위에서 아래로 이어지며, 그 아래를 가로지르는 점선이 메인 프로세스와 워커 프로세스를 가르고, Result queue와 Input queue가 그 점선에 걸터앉아 있으며, 맨 아래 Model worker 박스에 모델과 토크나이저 로드가 적힌 도식">
   <figcaption>화면엔 박스가 다섯 개인데 표의 이름은 여섯 개입니다. <strong>Model manager가 독립된 박스가 아니라 Model worker 박스 안에</strong> 들어 있어서입니다. Model worker 프로세스가 뜰 때 그 내부에서 <code>ModelManager().load_model()</code>을 호출해 모델과 토크나이저를 불러오니, 박스 개수와 컴포넌트 개수가 하나 어긋납니다. 가운데를 가로지르는 점선이 <strong>프로세스 경계</strong>입니다. (자작 도식)</figcaption>
 </figure>
 

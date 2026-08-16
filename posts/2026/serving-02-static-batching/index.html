@@ -436,7 +436,7 @@ N=64   ceil(64/4) = 16라운드 ×  0.318초  =  5.088초   (실측 5.213초)
 <h3>3.4 새 요청이 기다리는 진짜 이유</h3>
 <p>2.3절의 e, f는 정원이 모자라서 기다린 게 아닙니다. <strong>a~d가 든 라운드가 돌아가는 동안, 큐를 들여다보는 코드 자체가 실행되지 않기 때문</strong>입니다. <code>get_next_batch()</code>는 <code>LLMEngine.generate()</code>의 <code>while</code> 루프 맨 위에서만 불리고, 그 루프는 <code>execute_batch()</code>가 결과를 들고 돌아와야 다음 줄로 넘어갑니다. 라운드가 도는 동안은 이 함수 자체가 호출되지 않으니, 큐에 뭐가 쌓여 있든 그 라운드에 끼어들 방법이 없습니다.</p>
 <figure>
-  <img src="03-why-e-waits.webp" alt="batch_size 4와 batch_size 100 두 타임라인이 나란히 있고, 둘 다 새 요청이 진행 중인 라운드가 끝난 뒤에야 시작되는 것을 화살표로 보여주는 도식">
+  <img src="03-why-e-waits.webp" alt="batch_size 4와 batch_size 100 두 타임라인이 위아래로 놓여 블록 위치가 완전히 같고, 둘 다 새 요청이 진행 중인 라운드가 끝난 뒤에야 시작되는 것을 화살표로 보여주는 도식">
   <figcaption>위아래 타임라인의 <strong>정원만 다르고 진행 방식은 같습니다.</strong> <code>batch_size</code>를 4에서 100으로 올려도, 새 요청이 들어갈 수 있는 시점은 진행 중인 라운드가 끝나는 순간으로 똑같습니다. 버스 정원이 문제가 아니라 <strong>버스가 나가 있는 동안 정류장 자체를 보지 않는다</strong>는 게 두 타임라인이 겹치는 이유입니다. (자작 도식)</figcaption>
 </figure>
 

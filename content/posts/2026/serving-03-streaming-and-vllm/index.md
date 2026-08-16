@@ -476,19 +476,8 @@ LLM이라서 추가되는 네 개는 이렇습니다.
 
 이 요구사항들을 실제 서비스는 세 층으로 나눠 처리합니다.
 
-```
-Part A  서비스 인프라   ─ 로드밸런서 · 복제 · 헬스체크 · 리소스 할당
-                          (쿠버네티스 / 클라우드가 기본 제공)
-
-Part B  비즈니스 로직   ─ 인증 · 요청 검증 · 배칭 · rate limiting · 모델 설정
-                          (1~3편에서 만든 것이 전부 여기)
-
-Part C  모델 실행       ─ 양자화 · KV 캐시 · continuous batching
-                          (vLLM / Triton — 별도 프로세스, B만 접근 가능)
-```
-
 <figure>
-  <img src="03-three-layer-design.webp" alt="위에서부터 Part A 서비스 인프라, Part B 비즈니스 로직, Part C 모델 실행 세 개의 박스가 쌓여 있고 각 박스 아래 담당 요소가 나열된 도식">
+  <img src="03-three-layer-design.webp" alt="위에서부터 Part A 서비스 인프라, Part B 비즈니스 로직, Part C 모델 실행 세 개의 박스가 쌓여 있고 각 박스 안에 담당 요소가 나열된 도식">
   <figcaption>1-3편에서 만든 <code>WorkloadManager</code>, <code>ModelExecutor</code>, SSE 브리지, vLLM 연동은 전부 <strong>Part B</strong> 한 칸입니다. 로드밸런서나 복제는 이 시리즈가 건드린 적이 없고, <code>ModelWorker</code>가 하던 forward 자체도 3부에서 vLLM에 넘기면서 사실상 Part C로 이관됐습니다. 세 칸 중 어디를 만들고 있었는지가 여기서 정리됩니다. (자작 도식)</figcaption>
 </figure>
 
