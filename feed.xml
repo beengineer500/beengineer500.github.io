@@ -5,6 +5,13 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>최적화 1편. 배칭과 어텐션 - GPU 유휴 시간과 KV 캐시를 줄이는 다섯 기법</title>
+      <link>https://beengineer500.github.io/posts/2026/optimization-01-batching-and-attention/</link>
+      <description>요청을 언제 묶고 언제 쪼갤지 정하는 세 개의 상한, KV 캐시를 줄이는 네 가지 어텐션, 그리고 HBM 왕복을 없애는 커널을 정리했습니다</description>
+      <pubDate>Sun, 23 Aug 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/optimization-01-batching-and-attention/</guid>
+    </item>
+    <item>
       <title>서빙 1편. 여섯 컴포넌트 - 프로세스를 나누는 이유</title>
       <link>https://beengineer500.github.io/posts/2026/serving-01-architecture-and-isolation/</link>
       <description>단일 모델 LLM 서빙 시스템이 왜 여섯 조각으로 갈라지는지, 요청 하나가 프로세스 경계를 넘어 돌아오는 길을 따라갑니다</description>

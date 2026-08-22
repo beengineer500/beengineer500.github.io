@@ -74,6 +74,26 @@
           <!-- BUILD:LATEST_NOTES:START -->
           <article class="note-row">
             <div class="note-meta">
+              <time datetime="2026-08-23">2026.08.23</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/optimization-01-batching-and-attention/">최적화 1편. 배칭과 어텐션 - GPU 유휴 시간과 KV 캐시를 줄이는 다섯 기법</a></h3>
+              <p>
+                요청을 언제 묶고 언제 쪼갤지 정하는 세 개의 상한, KV 캐시를 줄이는 네 가지 어텐션, 그리고 HBM 왕복을 없애는 커널을 정리했습니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/batching.html">batching</a>
+                <a href="/tags/kv-cache.html">kv-cache</a>
+                <a href="/tags/flash-attention.html">flash-attention</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
               <time datetime="2026-08-16">2026.08.16</time>
               <span>llm</span>
             </div>
@@ -108,26 +128,6 @@
                 <a href="/tags/llm-serving.html">llm-serving</a>
                 <a href="/tags/vllm.html">vllm</a>
                 <a href="/tags/throughput.html">throughput</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-16">2026.08.16</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/serving-03-streaming-and-vllm/">서빙 3편. 스트리밍과 vLLM - 303줄을 20줄로</a></h3>
-              <p>
-                배치 하나에서 나온 토큰을 요청별로 갈라 보내는 SSE 구조와, 직접 만든 서빙 루프를 프레임워크로 갈아탈 때 드러나는 것
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/streaming.html">streaming</a>
-                <a href="/tags/sse.html">sse</a>
-                <a href="/tags/vllm.html">vllm</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
               </div>
             </div>
           </article>
