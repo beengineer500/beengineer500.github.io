@@ -47,7 +47,7 @@ LLM 서빙 최적화는 질문 하나로 압축됩니다. **GPU에 더 많은 �
 - [3.3 FlashAttention - 17ms에서 2.4ms로](#s3-3)
 - [3.4 PagedAttention - 20.4~38.2%를 거의 100%로](#s3-4)
 
-**[전체 흐름 정리](#section-4)** · **[막혔던 곳](#section-5)** · **[출처](#section-6)**
+**[전체 흐름 정리](#section-4)** · **[출처](#section-5)**
 
 </nav>
 
