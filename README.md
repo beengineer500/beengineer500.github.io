@@ -27,7 +27,7 @@ npm install   # once
 npm run build
 ```
 
-This renders every `content/posts/<year>/<slug>/index.md` into `posts/<year>/<slug>/index.html` using the site's existing template, copies any attachments in that folder, and regenerates `posts/index.html`, `categories/index.html`, `categories/<slug>.html`, `tags/<slug>.html`, the home page's latest-notes block, and `feed.xml` from the posts' frontmatter plus `content/taxonomy.json`. Run `npm run build` and commit the result whenever you add, edit, or remove a post. It does not touch `content/drafts/`.
+This renders every `content/posts/<year>/<slug>/index.md` into `posts/<year>/<slug>/index.html` using the site's existing template, copies any attachments in that folder, and regenerates `posts/index.html`, `categories/index.html`, `categories/<slug>.html`, `tags/<slug>.html`, the home page's latest-notes block, and `feed.xml` from the posts' frontmatter plus `content/taxonomy.json`. It does not touch `content/drafts/`. You don't have to run it before committing — CI rebuilds on every push to `main` and commits the output for you. Run it locally only when you want to preview.
 
 ## Local Preview
 
@@ -39,4 +39,6 @@ Open `http://localhost:8000`.
 
 ## Publishing
 
-Run `npm run build`, commit the generated `posts/<year>/<slug>/` output along with the markdown source, then push to `main`. GitHub Pages serves the site from the repository root.
+Commit the markdown source and push to `main`. The `Build and deploy` workflow runs `npm run build` and commits the generated `posts/`, `categories/`, `tags/`, `index.html`, and `feed.xml` back to `main` as `github-actions[bot]`. GitHub Pages serves the site from the repository root.
+
+Because the bot pushes a commit of its own, run `git pull` before your next local change.

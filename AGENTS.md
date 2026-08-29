@@ -208,7 +208,9 @@ content/drafts/<slug>/           작성 중. .gitignore 대상이라 커밋되�
 content/posts/<year>/<slug>/     index.md + 이미지(평면)
         ↓ npm run build
 posts/<year>/<slug>/index.html   + posts/, categories/, tags/ 목록 페이지 자동 생성
-        ↓ git commit → git push
+        ↓ git commit → git push (소스만)
+CI가 빌드해 빌드물을 main에 되돌려 커밋
+        ↓
 GitHub Pages 공개
 ```
 
@@ -216,6 +218,7 @@ GitHub Pages 공개
 - **새 카테고리·태그를 쓰면** `content/taxonomy.json`에 설명을 추가한다. 없으면 `llm 카테고리에 속한 메모입니다` 같은 자동 문구가 나간다.
 - **글을 지우면 목록 페이지는 자동으로 안 지워진다.** 그 글이 마지막으로 쓰던 분류·태그가 있으면 `categories/<slug>.html`, `tags/<slug>.html`을 손으로 지운다. 안 지우면 링크만 끊긴 빈 페이지가 남는다.
 - 빌드 산출물(`posts/`, `categories/`, `tags/`, `feed.xml`)도 커밋 대상이다. Pages가 저장소 루트를 그대로 서빙한다.
-- **CI가 이 동기화를 강제한다.** `.github/workflows/build-check.yml`이 `npm run build` 뒤에 `git diff --exit-code`를 돌린다. 소스만 고치고 빌드물을 안 올리면 CI가 깨진다. **커밋 전에 항상 빌드한다.**
+- **빌드는 CI가 한다.** `.github/workflows/build-check.yml`의 `Build and deploy` 워크플로가 main push마다 `npm run build`를 돌리고, 바뀐 빌드물을 `github-actions[bot]` 명의로 main에 커밋한다. 로컬에서 미리 빌드해 같이 커밋해도 된다 — 그러면 CI가 커밋할 게 없어 그냥 끝난다.
+- **봇이 커밋을 얹으므로 다음 작업 전에 `git pull`한다.** 안 하면 다음 푸시가 non-fast-forward로 튕긴다.
 - 푸시하면 즉시 공개된다. 푸시 전에 로컬 확인: `python3 -m http.server 8000`
 - 이 저장소는 개인 계정 소유다. 리모트가 `git@github-beengineer500:...` SSH 별칭으로 잡혀 있어야 푸시된다. HTTPS면 회사 계정으로 붙어 403이 난다.
