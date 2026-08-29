@@ -5,6 +5,20 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>최적화 2편. 추측 디코딩과 긴 컨텍스트 - Speculative Decoding과 MEDUSA·EAGLE, Ring Attention</title>
+      <link>https://beengineer500.github.io/posts/2026/optimization-02-speculative-decoding-and-long-context/</link>
+      <description>작은 초안 모델이 추측한 토큰을 큰 모델이 한 번의 가중치 읽기로 검증하는 추측 디코딩, 그것을 개선한 MEDUSA와 EAGLE, 그리고 KV Cache를 여러 장치에 나눠 담는 Ring Attention을 정리했습니다</description>
+      <pubDate>Sun, 30 Aug 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/optimization-02-speculative-decoding-and-long-context/</guid>
+    </item>
+    <item>
+      <title>최적화 3편. 여러 GPU에 모델 나누기 - 통신 패턴과 Tensor·Pipeline Parallel, MoE</title>
+      <link>https://beengineer500.github.io/posts/2026/optimization-03-parallelism/</link>
+      <description>모델이 GPU 한 장에 안 들어갈 때 여러 장에 나누는 방법과 그때 생기는 통신 병목을 정리했습니다. 집합 통신 다섯 패턴, Tensor·Pipeline Parallel, Prefill-Decode 분리, MoE의 all-to-all 병목까지 다룹니다</description>
+      <pubDate>Sun, 30 Aug 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/optimization-03-parallelism/</guid>
+    </item>
+    <item>
       <title>최적화 1편. 배칭과 어텐션 - GPU 유휴 시간과 KV 캐시를 줄이는 다섯 기법</title>
       <link>https://beengineer500.github.io/posts/2026/optimization-01-batching-and-attention/</link>
       <description>요청을 언제 묶고 언제 쪼갤지 정하는 세 개의 상한, KV 캐시를 줄이는 네 가지 어텐션, 그리고 HBM 왕복을 없애는 커널을 정리했습니다</description>

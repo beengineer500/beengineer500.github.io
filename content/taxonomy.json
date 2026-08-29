@@ -27,6 +27,13 @@
     "sse": "Server-Sent Events로 토큰을 요청별로 갈라 보내는 구조의 기록입니다.",
     "multi-model-serving": "한 서비스가 여러 모델을 공유 자원에서 나눠 서빙하는 구조의 기록입니다.",
     "triton": "NVIDIA Triton Inference Server에 모델 로딩과 추론을 위임한 기록입니다.",
-    "lru-cache": "무엇을 메모리에 남길지 정하는 LRU 축출 정책의 기록입니다."
+    "lru-cache": "무엇을 메모리에 남길지 정하는 LRU 축출 정책의 기록입니다.",
+    "speculative-decoding": "작은 초안 모델이 추측한 토큰을 큰 모델이 한 번에 검증해 생성을 빠르게 하는 추측 디코딩 기록입니다.",
+    "ring-attention": "KV Cache를 여러 장치에 나눠 담고 블록을 링으로 돌려 긴 컨텍스트를 처리하는 Ring Attention 기록입니다.",
+    "long-context": "컨텍스트가 길어질 때 늘어나는 KV Cache와 메모리 부담을 다루는 기록입니다.",
+    "parallelism": "모델을 여러 GPU에 나눠 담고 GPU 간 통신 병목을 다루는 병렬화 기록입니다.",
+    "tensor-parallel": "한 레이어의 가중치를 여러 GPU에 쪼개고 all-reduce로 합치는 Tensor Parallel 기록입니다.",
+    "pipeline-parallel": "모델을 레이어 단위로 나눠 GPU에 파이프라인처럼 흘려보내는 Pipeline Parallel 기록입니다.",
+    "moe": "토큰을 일부 전문가에게만 보내고 all-to-all로 통신하는 Mixture of Experts 기록입니다."
   }
 }

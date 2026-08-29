@@ -74,6 +74,46 @@
           <!-- BUILD:LATEST_NOTES:START -->
           <article class="note-row">
             <div class="note-meta">
+              <time datetime="2026-08-30">2026.08.30</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/optimization-02-speculative-decoding-and-long-context/">최적화 2편. 추측 디코딩과 긴 컨텍스트 - Speculative Decoding과 MEDUSA·EAGLE, Ring Attention</a></h3>
+              <p>
+                작은 초안 모델이 추측한 토큰을 큰 모델이 한 번의 가중치 읽기로 검증하는 추측 디코딩, 그것을 개선한 MEDUSA와 EAGLE, 그리고 KV Cache를 여러 장치에 나눠 담는 Ring Attention을 정리했습니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/speculative-decoding.html">speculative-decoding</a>
+                <a href="/tags/ring-attention.html">ring-attention</a>
+                <a href="/tags/kv-cache.html">kv-cache</a>
+                <a href="/tags/long-context.html">long-context</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-08-30">2026.08.30</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/optimization-03-parallelism/">최적화 3편. 여러 GPU에 모델 나누기 - 통신 패턴과 Tensor·Pipeline Parallel, MoE</a></h3>
+              <p>
+                모델이 GPU 한 장에 안 들어갈 때 여러 장에 나누는 방법과 그때 생기는 통신 병목을 정리했습니다. 집합 통신 다섯 패턴, Tensor·Pipeline Parallel, Prefill-Decode 분리, MoE의 all-to-all 병목까지 다룹니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/parallelism.html">parallelism</a>
+                <a href="/tags/tensor-parallel.html">tensor-parallel</a>
+                <a href="/tags/pipeline-parallel.html">pipeline-parallel</a>
+                <a href="/tags/moe.html">moe</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
               <time datetime="2026-08-23">2026.08.23</time>
               <span>llm</span>
             </div>
@@ -88,46 +128,6 @@
                 <a href="/tags/kv-cache.html">kv-cache</a>
                 <a href="/tags/flash-attention.html">flash-attention</a>
                 <a href="/tags/llm-serving.html">llm-serving</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-16">2026.08.16</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/serving-01-architecture-and-isolation/">서빙 1편. 여섯 컴포넌트 - 프로세스를 나누는 이유</a></h3>
-              <p>
-                단일 모델 LLM 서빙 시스템이 왜 여섯 조각으로 갈라지는지, 요청 하나가 프로세스 경계를 넘어 돌아오는 길을 따라갑니다
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
-                <a href="/tags/fastapi.html">fastapi</a>
-                <a href="/tags/multiprocessing.html">multiprocessing</a>
-                <a href="/tags/gpu.html">gpu</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-16">2026.08.16</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/serving-02-static-batching/">서빙 2편. 정적 배칭 - 처리량이 64배 벌어지는 지점</a></h3>
-              <p>
-                요청 경계를 무시하고 프롬프트를 다시 묶는 배칭의 원리와, 동시 요청을 1개에서 64개까지 올리며 직접 잰 처리량
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/batching.html">batching</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
-                <a href="/tags/vllm.html">vllm</a>
-                <a href="/tags/throughput.html">throughput</a>
               </div>
             </div>
           </article>

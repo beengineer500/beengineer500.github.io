@@ -6,9 +6,9 @@
       (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>kv-cache · beengineer500</title>
-    <meta name="description" content="kv-cache 태그가 붙은 beengineer500 블로그 메모를 모아둔 페이지입니다." />
-    <link rel="canonical" href="https://beengineer500.github.io/tags/kv-cache.html" />
+    <title>speculative-decoding · beengineer500</title>
+    <meta name="description" content="speculative-decoding 태그가 붙은 beengineer500 블로그 메모를 모아둔 페이지입니다." />
+    <link rel="canonical" href="https://beengineer500.github.io/tags/speculative-decoding.html" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
     <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
@@ -44,17 +44,17 @@
     <main id="main" class="shell archive-shell" tabindex="-1">
       <section class="archive-header" aria-labelledby="tag-title">
         <p class="eyebrow">tag</p>
-        <h1 id="tag-title">kv-cache</h1>
+        <h1 id="tag-title">speculative-decoding</h1>
         <p class="lead">
-          이미 계산한 키와 값을 재사용해 생성을 빠르게 하는 KV Cache 기록입니다.
+          작은 초안 모델이 추측한 토큰을 큰 모델이 한 번에 검증해 생성을 빠르게 하는 추측 디코딩 기록입니다.
         </p>
-        <p class="status-line">3 notes</p>
+        <p class="status-line">1 note</p>
       </section>
 
       <section class="section-block" aria-labelledby="tag-posts-title">
         <div class="section-heading">
           <p class="eyebrow">notes</p>
-          <h2 id="tag-posts-title">kv-cache 메모</h2>
+          <h2 id="tag-posts-title">speculative-decoding 메모</h2>
         </div>
 
         <div class="note-list">
@@ -69,48 +69,10 @@
                 작은 초안 모델이 추측한 토큰을 큰 모델이 한 번의 가중치 읽기로 검증하는 추측 디코딩, 그것을 개선한 MEDUSA와 EAGLE, 그리고 KV Cache를 여러 장치에 나눠 담는 Ring Attention을 정리했습니다
               </p>
               <div class="note-tags" aria-label="태그">
-                <a href="/tags/speculative-decoding.html">speculative-decoding</a>
+                <span>speculative-decoding</span>
                 <a href="/tags/ring-attention.html">ring-attention</a>
-                <span>kv-cache</span>
+                <a href="/tags/kv-cache.html">kv-cache</a>
                 <a href="/tags/long-context.html">long-context</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-23">2026.08.23</time>
-              <a href="/categories/llm.html">llm</a>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/optimization-01-batching-and-attention/">최적화 1편. 배칭과 어텐션 - GPU 유휴 시간과 KV 캐시를 줄이는 다섯 기법</a></h3>
-              <p>
-                요청을 언제 묶고 언제 쪼갤지 정하는 세 개의 상한, KV 캐시를 줄이는 네 가지 어텐션, 그리고 HBM 왕복을 없애는 커널을 정리했습니다
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/tags/batching.html">batching</a>
-                <span>kv-cache</span>
-                <a href="/tags/flash-attention.html">flash-attention</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-09">2026.08.09</time>
-              <a href="/categories/llm.html">llm</a>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/transformer-04-serving/">트랜스포머 4편. 서빙에서 어텐션 비용 줄이기 - KV Cache와 prefill과 Flash Attention</a></h3>
-              <p>
-                토큰 하나 뽑을 때마다 반복되는 어텐션 계산을 KV Cache로 없애고, 첫 계산을 prefill로 나누고, Flash Attention으로 메모리 이동을 줄이는 방법
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <span>kv-cache</span>
-                <a href="/tags/flash-attention.html">flash-attention</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
-                <a href="/tags/gpt-2.html">gpt-2</a>
               </div>
             </div>
           </article>

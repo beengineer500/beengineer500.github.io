@@ -49,7 +49,7 @@
           카테고리는 글의 큰 맥락을 하나만 고르고, 태그는 다시 찾을 때 쓸 키워드로 붙입니다.
           글이 늘어나도 이 페이지에서 주제별 입구를 유지합니다.
         </p>
-        <p class="status-line">1 category · 22 tags · 9 notes</p>
+        <p class="status-line">1 category · 29 tags · 11 notes</p>
       </section>
 
       <section class="section-block" aria-labelledby="categories-title">
@@ -64,7 +64,7 @@
               <span class="term-name">llm</span>
               <span class="term-description">LLM의 내부 구조와 추론 과정, 서빙 최적화를 파고든 기록입니다.</span>
             </span>
-            <span class="term-count">9 notes</span>
+            <span class="term-count">11 notes</span>
           </a>
         </div>
       </section>
@@ -76,18 +76,74 @@
         </div>
 
         <div class="term-list">
-          <a class="term-row" href="/tags/batching.html">
+          <a class="term-row" href="/tags/speculative-decoding.html">
             <span class="term-main">
-              <span class="term-name">batching</span>
-              <span class="term-description">여러 요청을 한 번의 forward로 묶는 배칭 전략의 기록입니다.</span>
+              <span class="term-name">speculative-decoding</span>
+              <span class="term-description">작은 초안 모델이 추측한 토큰을 큰 모델이 한 번에 검증해 생성을 빠르게 하는 추측 디코딩 기록입니다.</span>
             </span>
-            <span class="term-count">2 notes</span>
+            <span class="term-count">1 note</span>
+          </a>
+
+          <a class="term-row" href="/tags/ring-attention.html">
+            <span class="term-main">
+              <span class="term-name">ring-attention</span>
+              <span class="term-description">KV Cache를 여러 장치에 나눠 담고 블록을 링으로 돌려 긴 컨텍스트를 처리하는 Ring Attention 기록입니다.</span>
+            </span>
+            <span class="term-count">1 note</span>
           </a>
 
           <a class="term-row" href="/tags/kv-cache.html">
             <span class="term-main">
               <span class="term-name">kv-cache</span>
               <span class="term-description">이미 계산한 키와 값을 재사용해 생성을 빠르게 하는 KV Cache 기록입니다.</span>
+            </span>
+            <span class="term-count">3 notes</span>
+          </a>
+
+          <a class="term-row" href="/tags/long-context.html">
+            <span class="term-main">
+              <span class="term-name">long-context</span>
+              <span class="term-description">컨텍스트가 길어질 때 늘어나는 KV Cache와 메모리 부담을 다루는 기록입니다.</span>
+            </span>
+            <span class="term-count">1 note</span>
+          </a>
+
+          <a class="term-row" href="/tags/parallelism.html">
+            <span class="term-main">
+              <span class="term-name">parallelism</span>
+              <span class="term-description">모델을 여러 GPU에 나눠 담고 GPU 간 통신 병목을 다루는 병렬화 기록입니다.</span>
+            </span>
+            <span class="term-count">1 note</span>
+          </a>
+
+          <a class="term-row" href="/tags/tensor-parallel.html">
+            <span class="term-main">
+              <span class="term-name">tensor-parallel</span>
+              <span class="term-description">한 레이어의 가중치를 여러 GPU에 쪼개고 all-reduce로 합치는 Tensor Parallel 기록입니다.</span>
+            </span>
+            <span class="term-count">1 note</span>
+          </a>
+
+          <a class="term-row" href="/tags/pipeline-parallel.html">
+            <span class="term-main">
+              <span class="term-name">pipeline-parallel</span>
+              <span class="term-description">모델을 레이어 단위로 나눠 GPU에 파이프라인처럼 흘려보내는 Pipeline Parallel 기록입니다.</span>
+            </span>
+            <span class="term-count">1 note</span>
+          </a>
+
+          <a class="term-row" href="/tags/moe.html">
+            <span class="term-main">
+              <span class="term-name">moe</span>
+              <span class="term-description">토큰을 일부 전문가에게만 보내고 all-to-all로 통신하는 Mixture of Experts 기록입니다.</span>
+            </span>
+            <span class="term-count">1 note</span>
+          </a>
+
+          <a class="term-row" href="/tags/batching.html">
+            <span class="term-main">
+              <span class="term-name">batching</span>
+              <span class="term-description">여러 요청을 한 번의 forward로 묶는 배칭 전략의 기록입니다.</span>
             </span>
             <span class="term-count">2 notes</span>
           </a>
