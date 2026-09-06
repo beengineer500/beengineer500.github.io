@@ -74,6 +74,49 @@
           <!-- BUILD:LATEST_NOTES:START -->
           <article class="note-row">
             <div class="note-meta">
+              <time datetime="2026-09-06">2026.09.06</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/bf16-vs-awq-cold-cache/">BF16이 이긴 콜드 캐시 서빙 비교 - Qwen3-14B AWQ의 더 큰 KV 캐시가 TTFT를 줄이지 못한 이유</a></h3>
+              <p>
+                Qwen3-14B를 BF16과 AWQ로 각각 서빙해 콜드 캐시에서 처리량과 TTFT를 재봤습니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/vllm.html">vllm</a>
+                <a href="/tags/awq.html">awq</a>
+                <a href="/tags/quantization.html">quantization</a>
+                <a href="/tags/kv-cache.html">kv-cache</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+                <a href="/tags/benchmark.html">benchmark</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-06">2026.09.06</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/llmd-prefix-aware-routing/">균등 분산과 캐시 지역성은 다른 목표다 - llm-d prefix-aware 라우팅 실측</a></h3>
+              <p>
+                Kubernetes Service 직결과 load-only 라우터와 prefix-aware 라우터에 같은 프리픽스 반복 워크로드를 흘려 backend request 분포와 prefix-cache hit rate를 비교한 기록
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/llm-d.html">llm-d</a>
+                <a href="/tags/prefix-caching.html">prefix-caching</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
               <time datetime="2026-08-30">2026.08.30</time>
               <span>llm</span>
             </div>
@@ -88,46 +131,6 @@
                 <a href="/tags/ring-attention.html">ring-attention</a>
                 <a href="/tags/kv-cache.html">kv-cache</a>
                 <a href="/tags/long-context.html">long-context</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-30">2026.08.30</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/optimization-03-parallelism/">최적화 3편. 여러 GPU에 모델 나누기 - 통신 패턴과 Tensor·Pipeline Parallel, MoE</a></h3>
-              <p>
-                모델이 GPU 한 장에 안 들어갈 때 여러 장에 나누는 방법과 그때 생기는 통신 병목을 정리했습니다. 집합 통신 다섯 패턴, Tensor·Pipeline Parallel, Prefill-Decode 분리, MoE의 all-to-all 병목까지 다룹니다
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/parallelism.html">parallelism</a>
-                <a href="/tags/tensor-parallel.html">tensor-parallel</a>
-                <a href="/tags/pipeline-parallel.html">pipeline-parallel</a>
-                <a href="/tags/moe.html">moe</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-23">2026.08.23</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/optimization-01-batching-and-attention/">최적화 1편. 배칭과 어텐션 - GPU 유휴 시간과 KV 캐시를 줄이는 다섯 기법</a></h3>
-              <p>
-                요청을 언제 묶고 언제 쪼갤지 정하는 세 개의 상한, KV 캐시를 줄이는 네 가지 어텐션, 그리고 HBM 왕복을 없애는 커널을 정리했습니다
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/batching.html">batching</a>
-                <a href="/tags/kv-cache.html">kv-cache</a>
-                <a href="/tags/flash-attention.html">flash-attention</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
               </div>
             </div>
           </article>

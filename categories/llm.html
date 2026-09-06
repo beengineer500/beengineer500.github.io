@@ -48,7 +48,7 @@
         <p class="lead">
           LLM의 내부 구조와 추론 과정, 서빙 최적화를 파고든 기록입니다.
         </p>
-        <p class="status-line">11 notes</p>
+        <p class="status-line">13 notes</p>
       </section>
 
       <section class="section-block" aria-labelledby="category-posts-title">
@@ -58,6 +58,47 @@
         </div>
 
         <div class="note-list">
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-06">2026.09.06</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/bf16-vs-awq-cold-cache/">BF16이 이긴 콜드 캐시 서빙 비교 - Qwen3-14B AWQ의 더 큰 KV 캐시가 TTFT를 줄이지 못한 이유</a></h3>
+              <p>
+                Qwen3-14B를 BF16과 AWQ로 각각 서빙해 콜드 캐시에서 처리량과 TTFT를 재봤습니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/tags/vllm.html">vllm</a>
+                <a href="/tags/awq.html">awq</a>
+                <a href="/tags/quantization.html">quantization</a>
+                <a href="/tags/kv-cache.html">kv-cache</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+                <a href="/tags/benchmark.html">benchmark</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-06">2026.09.06</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/llmd-prefix-aware-routing/">균등 분산과 캐시 지역성은 다른 목표다 - llm-d prefix-aware 라우팅 실측</a></h3>
+              <p>
+                Kubernetes Service 직결과 load-only 라우터와 prefix-aware 라우터에 같은 프리픽스 반복 워크로드를 흘려 backend request 분포와 prefix-cache hit rate를 비교한 기록
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/tags/llm-d.html">llm-d</a>
+                <a href="/tags/prefix-caching.html">prefix-caching</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+              </div>
+            </div>
+          </article>
+
           <article class="note-row">
             <div class="note-meta">
               <time datetime="2026-08-30">2026.08.30</time>

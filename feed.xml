@@ -5,6 +5,20 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>BF16이 이긴 콜드 캐시 서빙 비교 - Qwen3-14B AWQ의 더 큰 KV 캐시가 TTFT를 줄이지 못한 이유</title>
+      <link>https://beengineer500.github.io/posts/2026/bf16-vs-awq-cold-cache/</link>
+      <description>Qwen3-14B를 BF16과 AWQ로 각각 서빙해 콜드 캐시에서 처리량과 TTFT를 재봤습니다</description>
+      <pubDate>Sun, 06 Sep 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/bf16-vs-awq-cold-cache/</guid>
+    </item>
+    <item>
+      <title>균등 분산과 캐시 지역성은 다른 목표다 - llm-d prefix-aware 라우팅 실측</title>
+      <link>https://beengineer500.github.io/posts/2026/llmd-prefix-aware-routing/</link>
+      <description>Kubernetes Service 직결과 load-only 라우터와 prefix-aware 라우터에 같은 프리픽스 반복 워크로드를 흘려 backend request 분포와 prefix-cache hit rate를 비교한 기록</description>
+      <pubDate>Sun, 06 Sep 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/llmd-prefix-aware-routing/</guid>
+    </item>
+    <item>
       <title>최적화 2편. 추측 디코딩과 긴 컨텍스트 - Speculative Decoding과 MEDUSA·EAGLE, Ring Attention</title>
       <link>https://beengineer500.github.io/posts/2026/optimization-02-speculative-decoding-and-long-context/</link>
       <description>작은 초안 모델이 추측한 토큰을 큰 모델이 한 번의 가중치 읽기로 검증하는 추측 디코딩, 그것을 개선한 MEDUSA와 EAGLE, 그리고 KV Cache를 여러 장치에 나눠 담는 Ring Attention을 정리했습니다</description>

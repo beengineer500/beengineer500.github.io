@@ -6,9 +6,9 @@
       (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>vllm · beengineer500</title>
-    <meta name="description" content="vllm 태그가 붙은 beengineer500 블로그 메모를 모아둔 페이지입니다." />
-    <link rel="canonical" href="https://beengineer500.github.io/tags/vllm.html" />
+    <title>kubernetes · beengineer500</title>
+    <meta name="description" content="kubernetes 태그가 붙은 beengineer500 블로그 메모를 모아둔 페이지입니다." />
+    <link rel="canonical" href="https://beengineer500.github.io/tags/kubernetes.html" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
     <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
@@ -44,17 +44,17 @@
     <main id="main" class="shell archive-shell" tabindex="-1">
       <section class="archive-header" aria-labelledby="tag-title">
         <p class="eyebrow">tag</p>
-        <h1 id="tag-title">vllm</h1>
+        <h1 id="tag-title">kubernetes</h1>
         <p class="lead">
-          vLLM의 배칭·메모리 선점 동작을 직접 재보고 비교한 기록입니다.
+          Deployment와 Service로 모델 서버를 띄우고 요청을 분산시킨 기록입니다.
         </p>
-        <p class="status-line">3 notes</p>
+        <p class="status-line">2 notes</p>
       </section>
 
       <section class="section-block" aria-labelledby="tag-posts-title">
         <div class="section-heading">
           <p class="eyebrow">notes</p>
-          <h2 id="tag-posts-title">vllm 메모</h2>
+          <h2 id="tag-posts-title">kubernetes 메모</h2>
         </div>
 
         <div class="note-list">
@@ -69,51 +69,32 @@
                 Qwen3-14B를 BF16과 AWQ로 각각 서빙해 콜드 캐시에서 처리량과 TTFT를 재봤습니다
               </p>
               <div class="note-tags" aria-label="태그">
-                <span>vllm</span>
+                <a href="/tags/vllm.html">vllm</a>
                 <a href="/tags/awq.html">awq</a>
                 <a href="/tags/quantization.html">quantization</a>
                 <a href="/tags/kv-cache.html">kv-cache</a>
                 <a href="/tags/llm-serving.html">llm-serving</a>
                 <a href="/tags/benchmark.html">benchmark</a>
-                <a href="/tags/kubernetes.html">kubernetes</a>
+                <span>kubernetes</span>
               </div>
             </div>
           </article>
 
           <article class="note-row">
             <div class="note-meta">
-              <time datetime="2026-08-16">2026.08.16</time>
+              <time datetime="2026-09-06">2026.09.06</time>
               <a href="/categories/llm.html">llm</a>
             </div>
             <div class="note-body">
-              <h3><a href="/posts/2026/serving-02-static-batching/">서빙 2편. 정적 배칭 - 처리량이 64배 벌어지는 지점</a></h3>
+              <h3><a href="/posts/2026/llmd-prefix-aware-routing/">균등 분산과 캐시 지역성은 다른 목표다 - llm-d prefix-aware 라우팅 실측</a></h3>
               <p>
-                요청 경계를 무시하고 프롬프트를 다시 묶는 배칭의 원리와, 동시 요청을 1개에서 64개까지 올리며 직접 잰 처리량
+                Kubernetes Service 직결과 load-only 라우터와 prefix-aware 라우터에 같은 프리픽스 반복 워크로드를 흘려 backend request 분포와 prefix-cache hit rate를 비교한 기록
               </p>
               <div class="note-tags" aria-label="태그">
-                <a href="/tags/batching.html">batching</a>
+                <a href="/tags/llm-d.html">llm-d</a>
+                <a href="/tags/prefix-caching.html">prefix-caching</a>
                 <a href="/tags/llm-serving.html">llm-serving</a>
-                <span>vllm</span>
-                <a href="/tags/throughput.html">throughput</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-16">2026.08.16</time>
-              <a href="/categories/llm.html">llm</a>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/serving-03-streaming-and-vllm/">서빙 3편. 스트리밍과 vLLM - 303줄을 20줄로</a></h3>
-              <p>
-                배치 하나에서 나온 토큰을 요청별로 갈라 보내는 SSE 구조와, 직접 만든 서빙 루프를 프레임워크로 갈아탈 때 드러나는 것
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/tags/streaming.html">streaming</a>
-                <a href="/tags/sse.html">sse</a>
-                <span>vllm</span>
-                <a href="/tags/llm-serving.html">llm-serving</a>
+                <span>kubernetes</span>
               </div>
             </div>
           </article>

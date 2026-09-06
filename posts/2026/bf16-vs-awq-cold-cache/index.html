@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BF16이 이긴 콜드 캐시 서빙 비교 - Qwen3-14B AWQ의 더 큰 KV 캐시가 TTFT를 줄이지 못한 이유 · beengineer500</title>
+    <meta name="post-category" content="llm" />
+    <meta name="post-tags" content="vllm, awq, quantization, kv-cache, llm-serving, benchmark, kubernetes" />
+    <meta name="description" content="Qwen3-14B를 BF16과 AWQ로 각각 서빙해 콜드 캐시에서 처리량과 TTFT를 재봤습니다" />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/bf16-vs-awq-cold-cache/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell article-shell" tabindex="-1">
+      <article class="article">
+        <header class="article-header">
+          <p class="eyebrow">llm</p>
+          <h1>BF16이 이긴 콜드 캐시 서빙 비교 - Qwen3-14B AWQ의 더 큰 KV 캐시가 TTFT를 줄이지 못한 이유</h1>
+          <p class="lead">
+            Qwen3-14B를 BF16과 AWQ로 각각 서빙해 콜드 캐시에서 처리량과 TTFT를 재봤습니다
+          </p>
+          <p class="status-line">2026.09.06 · 9 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/llm.html">llm</a>
+            <a href="/tags/vllm.html">vllm</a>
+            <a href="/tags/awq.html">awq</a>
+            <a href="/tags/quantization.html">quantization</a>
+            <a href="/tags/kv-cache.html">kv-cache</a>
+            <a href="/tags/llm-serving.html">llm-serving</a>
+            <a href="/tags/benchmark.html">benchmark</a>
+            <a href="/tags/kubernetes.html">kubernetes</a>
+          </div>
+        </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
+
+        <section>
+<h2>가중치를 줄이면 서빙도 빨라진다는 기대</h2>
+<p>AWQ는 가중치를 4bit로 압축합니다. 같은 GPU 메모리에서 가중치가 차지하는 자리가 줄면 남는 자리는 KV 캐시로 갑니다. 여기서 나오는 자연스러운 기대는 두 가지입니다. </p>
+<ol>
+<li>KV 캐시가 커지면 더 많은 요청을 동시에 담을 수 있습니다. </li>
+<li>캐시가 크면 프리픽스 재사용이 늘어나 첫 토큰까지 걸리는 시간(TTFT)도 줄어들 것입니다.</li>
+</ol>
+<p>이번 실험은 이 두 번째 기대만 따로 떼어 검증합니다. Qwen3-14B의 BF16 버전과 AWQ 버전에 정확히 같은 트래픽을 보내고, 처리량과 TTFT·TPOT를 나란히 잽니다.</p>
+</section>
+
+<section>
+<h2>실험 설계 - 콜드 캐시를 어떻게 통제했나</h2>
+<p><strong>워크로드와 시드</strong></p>
+<p>두 조건 모두 <code>vllm bench serve</code>의 <code>prefix_repetition</code> 데이터셋을 씁니다. </p>
+<ul>
+<li>프리픽스 길이 3,072 토큰</li>
+<li>서픽스 64 토큰</li>
+<li>프리픽스 종류 160개</li>
+<li>출력 길이 32 토큰</li>
+<li>프롬프트 480개</li>
+<li>request-rate 10 req/s(포아송, burstiness 1.0)</li>
+<li>max-concurrency 32</li>
+<li>temperature 0 완전히 동일합니다.</li>
+</ul>
+<p><code>--ignore-eos=True</code>가 켜져 있어 출력이 32 토큰으로 강제 고정됩니다. 그 결과 <strong>이번 트래픽은 입력 1,505,280 토큰 대 출력 15,360 토큰, 대략 98:1로 prefill이 지배하는 워크로드</strong>입니다. TTFT 쪽 결과가 이 글의 핵심이 되는 이유이기도 합니다.</p>
+<p><strong>서버 환경</strong></p>
+<ul>
+<li>두 조건 모두 이미지 <code>docker.io/vllm/vllm-openai:v0.11.0</code>을 쓰고, 모델명만 다를 뿐 <code>--max-model-len=8192</code>, <code>--gpu-memory-utilization=0.90</code>, <code>--enable-prefix-caching</code>, <code>--block-size=16</code>, replica 2개·GPU 1개씩까지 동일한 설정입니다.</li>
+</ul>
+<p><strong>Replica 분포와 경로</strong></p>
+<p>이번 벤치마크에서는 클라이언트가 파드를 직접 겨냥하지 않고 k8s Service 하나에 480개 요청을 전부 보내고 Service가 2개 replica로 분산시켜 진행했습니다.</p>
+<table>
+<thead>
+<tr>
+<th>조건</th>
+<th align="right">Replica 요청 분포</th>
+<th align="right">집계 prefix-cache 히트율</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>BF16</td>
+<td align="right">243 / 237</td>
+<td align="right">30.4%</td>
+</tr>
+<tr>
+<td>AWQ</td>
+<td align="right">238 / 242</td>
+<td align="right">39.2%</td>
+</tr>
+</tbody></table>
+<p>(BF16: <code>7w92m</code> 243건·히트율 31.7%, <code>pm7wp</code> 237건·히트율 28.9%. AWQ: <code>4qf68</code> 238건·히트율 38.4%, <code>t9p25</code> 242건·히트율 40.1%. 집계는 두 pod의 hits/queries를 합산한 값입니다.)</p>
+<pre><code>클라이언트 (seed 1788646381 · 480 requests)
+      │
+      ├──▶ k8s Service  vllm-qwen3-14b
+      │      ├──▶ BF16 replica 7w92m
+      │      └──▶ BF16 replica pm7wp
+      │
+      └──▶ k8s Service  vllm-qwen3-14b-awq
+             ├──▶ AWQ replica 4qf68
+             └──▶ AWQ replica t9p25
+
+4개 replica 각각에서
+      └──▶ vLLM /metrics 카운터 before·after 스냅샷
+</code></pre>
+<p>클라이언트는 파드가 아니라 k8s Service를 호출하고, Service가 2개 replica로 요청을 나눕니다. 관측은 Service 바깥에서 클라이언트가 보는 지표(TTFT·TPOT·처리량)와 각 replica 안에서 찍는 <code>/metrics</code> 카운터, 두 갈래로 수집됩니다.</p>
+</section>
+
+<section>
+<h2>결과 - 처리량과 지연</h2>
+<table>
+<thead>
+<tr>
+<th>지표</th>
+<th align="right">BF16</th>
+<th align="right">AWQ</th>
+<th align="right">AWQ 변화</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>성공 요청 수</td>
+<td align="right">480</td>
+<td align="right">480</td>
+<td align="right">동일</td>
+</tr>
+<tr>
+<td>벤치마크 소요 시간</td>
+<td align="right">85.51 s</td>
+<td align="right">91.40 s</td>
+<td align="right">+6.9%</td>
+</tr>
+<tr>
+<td>총 토큰 처리량</td>
+<td align="right">17,782.44 tok/s</td>
+<td align="right">16,637.20 tok/s</td>
+<td align="right">-6.4%</td>
+</tr>
+<tr>
+<td>Median TTFT</td>
+<td align="right">621.90 ms</td>
+<td align="right">796.22 ms</td>
+<td align="right">+28.0%</td>
+</tr>
+<tr>
+<td>P99 TTFT</td>
+<td align="right">3,481.34 ms</td>
+<td align="right">5,914.17 ms</td>
+<td align="right">+69.9%</td>
+</tr>
+<tr>
+<td>Mean TPOT</td>
+<td align="right">154.86 ms</td>
+<td align="right">159.14 ms</td>
+<td align="right">+2.8%</td>
+</tr>
+<tr>
+<td>Median TPOT</td>
+<td align="right">160.89 ms</td>
+<td align="right">161.32 ms</td>
+<td align="right">+0.3%</td>
+</tr>
+<tr>
+<td>Mean E2E 지연</td>
+<td align="right">5,558.82 ms</td>
+<td align="right">5,965.20 ms</td>
+<td align="right">+7.3%</td>
+</tr>
+<tr>
+<td>P99 E2E 지연</td>
+<td align="right">9,680.65 ms</td>
+<td align="right">14,629.57 ms</td>
+<td align="right">+51.1%</td>
+</tr>
+</tbody></table>
+<p>위 표의 모든 지표에서 BF16 쪽이 낫습니다. 격차는 TPOT보다 TTFT에서 훨씬 큽니다. Mean TPOT는 2.8% 차이인데 Median TTFT는 28.0%, P99 TTFT는 69.9% 차이입니다.</p>
+</section>
+
+<section>
+<h2>관찰 - 히트율은 AWQ가 높았지만 TTFT는 더 느렸다</h2>
+<p>AWQ는 두 replica 모두 BF16보다 prefix-cache 히트율이 높습니다(집계 39.2% vs 30.4%). 프리픽스를 재사용한 비율이 더 높았다는 뜻인데, 그럼에도 TTFT는 AWQ가 더 나쁩니다. 캐시를 더 잘 맞혔는데 응답은 더 늦었습니다.</p>
+<p><strong>아직 모르는 것 - AWQ의 토큰 간 간격이 이상하게 갈라집니다.</strong> AWQ의 median ITL은 21.05 ms인데 mean ITL은 159.14 ms입니다. BF16은 median 190.12 ms, mean 154.86 ms로 이런 괴리가 없습니다. AWQ 쪽 토큰 간 간격 분포가 강하게 이봉(bimodal)이라는 뜻으로 읽히지만, 저장된 아티팩트에 개별 요청 단위 타임라인이 없어 원인은 확인하지 못합니다.</p>
+<p><strong>아직 모르는 것 - 실측 최대 동시 요청 수가 설정값을 넘습니다.</strong> 벤치마크 결과 JSON의 <code>.max_concurrent_requests</code>는 BF16 42, AWQ 47입니다. 벤치 설정은 <code>max_concurrency=32</code>였는데 실측값이 그보다 큽니다. 클라이언트 세마포어 32와 이 지표가 정확히 무엇을 세는지(요청 정의, 집계 시점 등)가 어떻게 다른지 확인할 자료가 없어, 왜 32를 넘겼는지는 미해결로 남겨둡니다.</p>
+<p><strong>주의 - 두 개의 &quot;토큰 수&quot;를 섞지 않습니다.</strong> 벤치마크 결과 JSON의 <code>total_input_tokens</code>는 1,505,280입니다. 같은 두 replica의 <code>prefix_cache_queries_total</code> 합계는 1,505,293으로 13 토큰이 다릅니다. 정의가 다른 두 카운터라 상호대체하지 않고, 처리량·지연 계산에는 JSON 값을, 히트율 계산에는 <code>/metrics</code> 카운터 값을 각각 그대로 씁니다.</p>
+</section>
+
+<section>
+<h2>KV 캐시 용량 - AWQ 402,400 토큰 vs BF16 283,408 토큰</h2>
+<p>AWQ의 KV 캐시 용량은 402,400 토큰, BF16은 283,408 토큰입니다. </p>
+<p>이번 요청 하나는 prefix 3,072 + suffix 64에 출력 32를 더해 총 3,168 토큰입니다. 이 크기 기준으로 BF16은 약 89.4개, AWQ는 약 127.0개 요청분을 담습니다. 설정 동시성 32는 물론 실측 최대 동시 요청 수(BF16 42, AWQ 47)보다도 훨씬 큽니다. 이번 워크로드에서는 두 조건 모두 KV 캐시 용량이 병목이 아니었던 것으로 보입니다.</p>
+<pre><code>AWQ 4bit 양자화
+      │
+      ▼
+가중치 메모리 절감 (관찰)
+      │
+      ▼
+KV 캐시 용량 증가  283,408 → 402,400 토큰
+      │
+      ├──▶ 요청 3,168토큰 기준 동시 여유
+      │      BF16 89.4개 · AWQ 127.0개
+      │      (설정 32, 실측 42/47보다 큼)
+      │
+      ├╌╌▶ TTFT·처리량 개선   ← 가설, 검증 안 됨
+      │
+      └──▶ 실측: Median TTFT +28.0%
+             P99 TTFT +69.9% · 처리량 −6.4%
+</code></pre>
+<p>실선은 관찰(가중치 절감→캐시 용량 증가, 동시 여유 계산)입니다. 점선은 &quot;캐시가 크면 지연도 준다&quot;는 검증되지 않은 가설이고, 실제 측정은 그 가설과 반대 방향입니다.</p>
+</section>
+
+<section>
+<h2>해석 - KV 캐시 용량과 요청 지연은 다른 질문</h2>
+<p>KV 캐시 용량은 &quot;동시에 얼마나 많은 요청의 상태를 담아둘 수 있는가&quot;를 답합니다. TTFT는 &quot;한 요청이 첫 토큰을 받기까지 얼마나 걸리는가&quot;를 답합니다. 두 질문은 서로 다른 축입니다. 캐시가 커도 이미 32개 동시성 안에서 여유가 남아 있다면, 그 여유는 지연을 줄이는 데 쓰이지 않고 그냥 미사용 상태로 남습니다.</p>
+<p>이번 결과가 보여주는 것은 AWQ의 캐시 용량 우위가 이 워크로드(동시성 32, 프리필 지배적, 480 요청)에서는 지연 개선으로 이어지지 않았다는 것 입니다.</p>
+<p><strong>미확인 사항</strong> 
+왜 AWQ의 TTFT가 더 나빴는지는 이 자료로 단정할 수 없습니다. GPU 커널 시간, CPU 스케줄링 시간, 큐 대기 시간이 분해되어 저장돼 있지 않습니다. 이 질문에 답하려면 같은 워크로드로 BF16·AWQ 각각의 Nsight 트레이스를 떠서 GEMM/어텐션 커널 시간과 CUDA API 갭을 비교해야 합니다.</p>
+<pre><code>[관찰]
+  총 토큰 처리량   BF16 17,782 &gt; AWQ 16,637 tok/s
+  Median TTFT     BF16 621.9 &lt; AWQ 796.2 ms
+  P99 TTFT        BF16 3,481 &lt; AWQ 5,914 ms
+  Mean TPOT       BF16 154.9 ≈ AWQ 159.1 ms
+  히트율          BF16 30.4% &lt; AWQ 39.2%
+      │
+      ├╌╌▶ [해석] 이 워크로드(동시성 32)에서
+      │      AWQ 캐시 여유는 미사용 용량으로 보임
+      │      (근거: 히트율)
+      │
+      └╌╌▶ [미해결] TTFT 격차의
+             커널·큐잉·스케줄링 비중
+             (근거: Median/P99 TTFT)
+</code></pre>
+<p>관찰(위)은 전부 벤치 JSON과 <code>/metrics</code> 카운터에서 직접 나온 값입니다. 해석과 미해결(아래)은 그 관찰을 넘어서는 설명이라 실선이 아니라 별도 칸으로 분리했습니다.</p>
+</section>
+
+<section>
+<h2>결론 - 이 조건에 한정</h2>
+<p>이 A100 계열로 추정되는 노드(a100-002, manifest에 GPU 기종 고정 없음) 위, vLLM 0.11.0, Qwen3-14B와 Qwen3-14B-AWQ, k8s Service를 경유한 480개 prefix_repetition 요청(프리필 지배적, 동시성 32) 조건에서는 BF16이 처리량·TTFT·TPOT·E2E 지연 모든 지표에서 AWQ를 이겼습니다. </p>
+<p>이 결론은 이 하드웨어·모델·워크로드 조합에 한정됩니다. 다른 GPU, 다른 모델 크기, 더 긴 출력, 더 높은 동시성, 또는 pod 직접 분할 경로에서는 결과가 달라질 수 있습니다.</p>
+</section>
+
+<section>
+<h2>LLM serving 인사이트</h2>
+<ul>
+<li><strong>양자화의 가치는 지연보다 메모리 용량과 배포 가능성일 수 있습니다.</strong> <ul>
+<li>이번 실험에서 AWQ의 KV 캐시 용량은 BF16보다 컸지만(실험 리포트 기준 402,400 vs 283,408 토큰) 이번 워크로드의 TTFT는 AWQ가 더 나빴습니다. </li>
+<li>반대로 같은 GPU 메모리에 더 큰 모델을 올리거나, 같은 모델을 더 적은 GPU로 서빙해야 하는 상황에서는 AWQ의 가치가 지연이 아니라 &quot;애초에 배포 가능한가&quot;에서 나올 수 있습니다.</li>
+</ul>
+</li>
+<li><strong>prompt/output 비율, 동시성, 캐시 히트율이 결과를 뒤집을 수 있습니다.</strong> <ul>
+<li>이번 워크로드는 입력 대 출력이 약 98:1로 prefill이 지배적이고 max-concurrency는 32였습니다. </li>
+<li>출력이 훨씬 긴 워크로드나 동시성이 KV 캐시 용량에 근접하는 워크로드였다면 TPOT나 처리량 쪽에서 AWQ의 여유 용량이 실제로 쓰였을 가능성이 있습니다.</li>
+</ul>
+</li>
+<li><strong>평균만이 아니라 median·P99, replica 분포, 캐시 상태를 함께 봐야 합니다.</strong><ul>
+<li>이번 실험에서 Mean TPOT 차이는 2.8%로 작았지만 P99 TTFT 차이는 69.9%로 컸습니다. </li>
+<li>평균 하나만 봤다면 두 조건이 비슷하다고 잘못 읽었을 것입니다. </li>
+<li>replica별 요청 분포를 확인하지 않았다면 &quot;한쪽 replica가 트래픽을 독차지해서 생긴 왜곡&quot;이라는 의심을 배제하지 못했을 것입니다.</li>
+</ul>
+</li>
+<li><strong>benchmark는 &quot;무엇을 재는지&quot;가 모델 형식만큼 결론을 좌우합니다.</strong> <ul>
+<li>같은 두 서버라도 Service 경로로 재는지 pod 직접 경로로 재는지, <code>ignore_eos</code>로 출력 길이를 고정하는지에 따라 같은 실행에서도 다른 숫자와 다른 신뢰도가 나옵니다. </li>
+<li>이번 결과의 신뢰도는 콜드 캐시 전제 확인에서 나옵니다.</li>
+</ul>
+</li>
+</ul>
+</section>
+
+        <p class="article-back">
+          <a href="/posts/">글 인덱스로 돌아가기</a>
+        </p>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+          <a href="https://github.com/beengineer500">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
