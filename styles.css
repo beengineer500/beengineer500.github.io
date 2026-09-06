@@ -500,6 +500,20 @@ img {
   line-height: 1.7;
 }
 
+/* mermaid 도식 - 렌더링이 끝날 때까지 원본 텍스트를 감춘다.
+   mermaid-init.js가 끝나면(실패해도) mermaid-pending이 벗겨진다. */
+.mermaid-pending .article pre.mermaid {
+  visibility: hidden;
+}
+.article pre.mermaid {
+  padding: var(--space-5);
+  text-align: center;
+}
+.article pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .code-copy {
   position: absolute;
   top: var(--space-2);

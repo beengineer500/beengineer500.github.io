@@ -38,6 +38,21 @@ function readingTimeMinutes(html) {
   return Math.max(1, Math.round(chars / 500));
 }
 
+// ```mermaid 블록은 원본을 그대로 두고 브라우저에서 그린다.
+// mermaid.js는 도식이 있는 글에만 주입된다 (renderPage의 hasMermaid).
+marked.use({
+  renderer: {
+    code(code, infostring) {
+      if (infostring !== "mermaid") return false; // false면 기본 렌더러로 넘어간다
+      return `<pre class="mermaid">${escapeHtml(code)}</pre>\n`;
+    },
+  },
+});
+
+function hasMermaidBlock(articleHtml) {
+  return articleHtml.includes('<pre class="mermaid">');
+}
+
 function renderSections(markdownBody) {
   const tokens = marked.lexer(markdownBody);
   const sections = [];
@@ -61,6 +76,10 @@ function formatDate(iso) {
   return iso.replace(/-/g, ".");
 }
 
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function escapeXml(text) {
   return text
     .replace(/&/g, "&amp;")
@@ -74,6 +93,19 @@ function toRfc822(dateIso) {
   return new Date(`${dateIso}T00:00:00Z`).toUTCString();
 }
 
+// mermaid.js 로드가 실패해도 원본 텍스트가 영영 숨지 않도록 되돌리는 시간
+const MERMAID_FALLBACK_MS = 3000;
+
+function mermaidExtras(hasMermaid) {
+  if (!hasMermaid) return "";
+  return `
+    <script>
+      document.documentElement.classList.add("mermaid-pending");
+      setTimeout(function () { document.documentElement.classList.remove("mermaid-pending"); }, ${MERMAID_FALLBACK_MS});
+    </script>
+    <script type="module" src="/mermaid-init.js"></script>`;
+}
+
 function headExtras() {
   return `<link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="${SITE_URL}/feed.xml" />
     <meta property="og:image" content="${HERO_IMAGE_URL}" />
@@ -85,7 +117,7 @@ function headExtras() {
 // Post page rendering (content/posts/<year>/<slug>/index.md -> posts/<year>/<slug>/index.html)
 // ---------------------------------------------------------------------------
 
-function renderPage({ title, description, canonical, dateIso, category, tags, readingMinutes, articleHtml }) {
+function renderPage({ title, description, canonical, dateIso, category, tags, readingMinutes, articleHtml, hasMermaid }) {
   const categorySlug = slugify(category);
   const tagLinks = tags
     .map((tag) => `<a href="/tags/${slugify(tag)}.html">${tag}</a>`)
@@ -108,7 +140,7 @@ function renderPage({ title, description, canonical, dateIso, category, tags, re
     ${headExtras()}
     <link rel="preload" href="/styles.css" as="style" />
     <link rel="stylesheet" href="/styles.css" />
-    <script src="/main.js" defer></script>
+    <script src="/main.js" defer></script>${mermaidExtras(hasMermaid)}
   </head>
   <body>
     <a class="skip-link" href="#main">본문으로 이동</a>
@@ -198,6 +230,7 @@ function buildPost(year, slug) {
     tags,
     readingMinutes: readingTimeMinutes(articleHtml),
     articleHtml,
+    hasMermaid: hasMermaidBlock(articleHtml),
   });
 
   const outDir = path.join(OUTPUT_DIR, year, slug);

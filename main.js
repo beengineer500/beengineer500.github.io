@@ -29,7 +29,8 @@
     });
   }
 
-  document.querySelectorAll(".article pre").forEach(function (pre) {
+  // mermaid 도식은 제외한다 - 버튼이 pre 안으로 들어가면 도식 원본에 섞인다.
+  document.querySelectorAll(".article pre:not(.mermaid)").forEach(function (pre) {
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "code-copy";
