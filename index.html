@@ -95,27 +95,6 @@
 
           <article class="note-row">
             <div class="note-meta">
-              <time datetime="2026-09-13">2026.09.13</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/k8s-gpu-device-plugin-stack/">베어메탈 GPU가 파드에 닿기까지 네 번의 번역 - 커널 모듈부터 nvidia.com/gpu 1까지</a></h3>
-              <p>
-                PC에 꽂힌 RTX 4070 Ti SUPER 한 장이 커널 모듈, 디바이스 노드, OCI 훅, device plugin gRPC를 지나 파드 안에서 보이기까지 각 계층이 무엇을 하고 없으면 무엇이 실패하는지 따라간 기록
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/gpu.html">gpu</a>
-                <a href="/tags/kubernetes.html">kubernetes</a>
-                <a href="/tags/device-plugin.html">device-plugin</a>
-                <a href="/tags/dcgm.html">dcgm</a>
-                <a href="/tags/vllm.html">vllm</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
               <time datetime="2026-09-06">2026.09.06</time>
               <span>llm</span>
             </div>
@@ -132,6 +111,26 @@
                 <a href="/tags/kv-cache.html">kv-cache</a>
                 <a href="/tags/llm-serving.html">llm-serving</a>
                 <a href="/tags/benchmark.html">benchmark</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-06">2026.09.06</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/llmd-prefix-aware-routing/">균등 분산과 캐시 지역성은 다른 목표다 - llm-d prefix-aware 라우팅 실측</a></h3>
+              <p>
+                Kubernetes Service 직결과 load-only 라우터와 prefix-aware 라우터에 같은 프리픽스 반복 워크로드를 흘려 backend request 분포와 prefix-cache hit rate를 비교한 기록
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/llm-d.html">llm-d</a>
+                <a href="/tags/prefix-caching.html">prefix-caching</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
                 <a href="/tags/kubernetes.html">kubernetes</a>
               </div>
             </div>
