@@ -48,7 +48,7 @@
         <p class="lead">
           LLM의 내부 구조와 추론 과정, 서빙 최적화를 파고든 기록입니다.
         </p>
-        <p class="status-line">13 notes</p>
+        <p class="status-line">15 notes</p>
       </section>
 
       <section class="section-block" aria-labelledby="category-posts-title">
@@ -58,6 +58,46 @@
         </div>
 
         <div class="note-list">
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-13">2026.09.13</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/aws-trainium-vllm-eks/">AWS Trainium에서 vLLM 서빙 - 첫 배포 8분과 재배포 20초를 가르는 Neuron 컴파일</a></h3>
+              <p>
+                trn1.2xlarge 칩 1개의 NeuronCore 2개가 TP 2가 되고 init 컨테이너 컴파일과 S3 캐시가 파드 기동 시간을 8분에서 20초로 바꾸는 경로를 실제 값으로 따라갑니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/tags/trainium.html">trainium</a>
+                <a href="/tags/neuron.html">neuron</a>
+                <a href="/tags/vllm.html">vllm</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-13">2026.09.13</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/k8s-gpu-device-plugin-stack/">베어메탈 GPU가 파드에 닿기까지 네 번의 번역 - 커널 모듈부터 nvidia.com/gpu 1까지</a></h3>
+              <p>
+                PC에 꽂힌 RTX 4070 Ti SUPER 한 장이 커널 모듈, 디바이스 노드, OCI 훅, device plugin gRPC를 지나 파드 안에서 보이기까지 각 계층이 무엇을 하고 없으면 무엇이 실패하는지 따라간 기록
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/tags/gpu.html">gpu</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+                <a href="/tags/device-plugin.html">device-plugin</a>
+                <a href="/tags/dcgm.html">dcgm</a>
+                <a href="/tags/vllm.html">vllm</a>
+              </div>
+            </div>
+          </article>
+
           <article class="note-row">
             <div class="note-meta">
               <time datetime="2026-09-06">2026.09.06</time>

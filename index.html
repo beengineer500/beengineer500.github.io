@@ -74,6 +74,48 @@
           <!-- BUILD:LATEST_NOTES:START -->
           <article class="note-row">
             <div class="note-meta">
+              <time datetime="2026-09-13">2026.09.13</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/aws-trainium-vllm-eks/">AWS Trainium에서 vLLM 서빙 - 첫 배포 8분과 재배포 20초를 가르는 Neuron 컴파일</a></h3>
+              <p>
+                trn1.2xlarge 칩 1개의 NeuronCore 2개가 TP 2가 되고 init 컨테이너 컴파일과 S3 캐시가 파드 기동 시간을 8분에서 20초로 바꾸는 경로를 실제 값으로 따라갑니다
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/trainium.html">trainium</a>
+                <a href="/tags/neuron.html">neuron</a>
+                <a href="/tags/vllm.html">vllm</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+                <a href="/tags/llm-serving.html">llm-serving</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
+              <time datetime="2026-09-13">2026.09.13</time>
+              <span>llm</span>
+            </div>
+            <div class="note-body">
+              <h3><a href="/posts/2026/k8s-gpu-device-plugin-stack/">베어메탈 GPU가 파드에 닿기까지 네 번의 번역 - 커널 모듈부터 nvidia.com/gpu 1까지</a></h3>
+              <p>
+                PC에 꽂힌 RTX 4070 Ti SUPER 한 장이 커널 모듈, 디바이스 노드, OCI 훅, device plugin gRPC를 지나 파드 안에서 보이기까지 각 계층이 무엇을 하고 없으면 무엇이 실패하는지 따라간 기록
+              </p>
+              <div class="note-tags" aria-label="태그">
+                <a href="/categories/llm.html">llm</a>
+                <a href="/tags/gpu.html">gpu</a>
+                <a href="/tags/kubernetes.html">kubernetes</a>
+                <a href="/tags/device-plugin.html">device-plugin</a>
+                <a href="/tags/dcgm.html">dcgm</a>
+                <a href="/tags/vllm.html">vllm</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="note-row">
+            <div class="note-meta">
               <time datetime="2026-09-06">2026.09.06</time>
               <span>llm</span>
             </div>
@@ -91,46 +133,6 @@
                 <a href="/tags/llm-serving.html">llm-serving</a>
                 <a href="/tags/benchmark.html">benchmark</a>
                 <a href="/tags/kubernetes.html">kubernetes</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-09-06">2026.09.06</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/llmd-prefix-aware-routing/">균등 분산과 캐시 지역성은 다른 목표다 - llm-d prefix-aware 라우팅 실측</a></h3>
-              <p>
-                Kubernetes Service 직결과 load-only 라우터와 prefix-aware 라우터에 같은 프리픽스 반복 워크로드를 흘려 backend request 분포와 prefix-cache hit rate를 비교한 기록
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/llm-d.html">llm-d</a>
-                <a href="/tags/prefix-caching.html">prefix-caching</a>
-                <a href="/tags/llm-serving.html">llm-serving</a>
-                <a href="/tags/kubernetes.html">kubernetes</a>
-              </div>
-            </div>
-          </article>
-
-          <article class="note-row">
-            <div class="note-meta">
-              <time datetime="2026-08-30">2026.08.30</time>
-              <span>llm</span>
-            </div>
-            <div class="note-body">
-              <h3><a href="/posts/2026/optimization-02-speculative-decoding-and-long-context/">최적화 2편. 추측 디코딩과 긴 컨텍스트 - Speculative Decoding과 MEDUSA·EAGLE, Ring Attention</a></h3>
-              <p>
-                작은 초안 모델이 추측한 토큰을 큰 모델이 한 번의 가중치 읽기로 검증하는 추측 디코딩, 그것을 개선한 MEDUSA와 EAGLE, 그리고 KV Cache를 여러 장치에 나눠 담는 Ring Attention을 정리했습니다
-              </p>
-              <div class="note-tags" aria-label="태그">
-                <a href="/categories/llm.html">llm</a>
-                <a href="/tags/speculative-decoding.html">speculative-decoding</a>
-                <a href="/tags/ring-attention.html">ring-attention</a>
-                <a href="/tags/kv-cache.html">kv-cache</a>
-                <a href="/tags/long-context.html">long-context</a>
               </div>
             </div>
           </article>
