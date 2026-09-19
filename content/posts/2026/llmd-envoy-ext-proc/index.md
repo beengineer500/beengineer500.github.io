@@ -139,7 +139,7 @@ static_resources:
 Envoy 공식 문서의 Life of a Request가 12단계로 적어둔 경로를 줄이면 이렇습니다.
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["다운스트림 커넥션"] --> B["Listener - accept"]
     B --> C["네트워크 필터 체인<br/>HCM이 마지막"]
     C --> D["HTTP 필터 체인<br/>스트림마다 하나씩"]
@@ -443,7 +443,7 @@ flowchart TD
     GW["Gateway<br/>gateway.networking.k8s.io/v1"]
     HR["HTTPRoute"]
     IP["InferencePool<br/>inference.networking.k8s.io/v1"]
-    IO["InferenceObjective / InferenceModelRewrite<br/>llm-d.ai/v1alpha2"]
+    IO["InferenceObjective<br/>InferenceModelRewrite<br/>llm-d.ai/v1alpha2"]
     SVC["Service - EPP"]
     EPPD["EPP Deployment"]
     CM["ConfigMap<br/>EndpointPickerConfig"]
@@ -561,7 +561,7 @@ metadata:
 `llm-d.ai/role=prefill`과 `llm-d.ai/role=decode`를 단 Deployment 둘이 **같은 InferencePool 안에** 들어갑니다. EPP는 그 라벨을 보고 어느 쪽이 prefill이고 어느 쪽이 decode인지 압니다.
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["요청"] --> B["프록시"]
     B -->|ext_proc| C["EPP<br/>라벨로 P/D 판별"]
     C --> D["라우팅 사이드카"]

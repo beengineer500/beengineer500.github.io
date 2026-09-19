@@ -193,7 +193,7 @@
 <p><a id="s2-2"></a></p>
 <h3>2.2 요청이 라우팅되는 순간</h3>
 <p>Envoy 공식 문서의 Life of a Request가 12단계로 적어둔 경로를 줄이면 이렇습니다.</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A["다운스트림 커넥션"] --&gt; B["Listener - accept"]
     B --&gt; C["네트워크 필터 체인&lt;br/&gt;HCM이 마지막"]
     C --&gt; D["HTTP 필터 체인&lt;br/&gt;스트림마다 하나씩"]
@@ -538,7 +538,7 @@ schedulingProfiles:
     GW["Gateway&lt;br/&gt;gateway.networking.k8s.io/v1"]
     HR["HTTPRoute"]
     IP["InferencePool&lt;br/&gt;inference.networking.k8s.io/v1"]
-    IO["InferenceObjective / InferenceModelRewrite&lt;br/&gt;llm-d.ai/v1alpha2"]
+    IO["InferenceObjective&lt;br/&gt;InferenceModelRewrite&lt;br/&gt;llm-d.ai/v1alpha2"]
     SVC["Service - EPP"]
     EPPD["EPP Deployment"]
     CM["ConfigMap&lt;br/&gt;EndpointPickerConfig"]
@@ -682,7 +682,7 @@ metadata:
     llm-d.ai/role: decode
 </code></pre>
 <p><code>llm-d.ai/role=prefill</code>과 <code>llm-d.ai/role=decode</code>를 단 Deployment 둘이 <strong>같은 InferencePool 안에</strong> 들어갑니다. EPP는 그 라벨을 보고 어느 쪽이 prefill이고 어느 쪽이 decode인지 압니다.</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A["요청"] --&gt; B["프록시"]
     B --&gt;|ext_proc| C["EPP&lt;br/&gt;라벨로 P/D 판별"]
     C --&gt; D["라우팅 사이드카"]

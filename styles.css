@@ -754,6 +754,12 @@ img {
 }
 
 @media (max-width: 719px) {
+  /* 좁은 화면에서 축소하면 글자가 읽을 수 없는 크기가 된다(실측 3.3px).
+     코드블록과 같이 원래 크기로 두고 pre가 가로로 스크롤되게 한다. */
+  .article pre.mermaid svg {
+    max-width: none;
+  }
+
   .shell {
     width: min(100% - var(--space-6), var(--content));
   }
