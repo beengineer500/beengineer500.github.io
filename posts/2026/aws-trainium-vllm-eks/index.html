@@ -204,13 +204,12 @@ NEURON DEVICE | NEURON CORES | CORE IDS | NEURON MEMORY | PCI BDF      | CPU AFF
 <h3>2.1 init 컨테이너가 하는 일</h3>
 <p>GPU 서빙에서는 컨테이너가 뜨고 가중치를 로드하면 끝이고, 커널은 런타임에 올라갑니다. Neuron은 모델을 <strong>먼저 컴파일해 NEFF 아티팩트로 만들어둬야</strong> 실행됩니다. 이 작업을 어디에 두느냐가 배포 패턴을 가르고, 워크숍의 선택은 init 컨테이너입니다.</p>
 <pre class="mermaid">flowchart TD
-    A["파드 스케줄 - my-scheduler"] --&gt; B["init 컨테이너 model-prep"]
-    B --&gt; C{"S3 PVC에 캐시가 있는가"}
-    C --&gt;|"있음"| G["컴파일 건너뜀"]
-    C --&gt;|"없음"| D["HF 다운로드 → neuronx-cc 컴파일"]
+    A["파드 스케줄 my-scheduler"] --&gt; B["init 컨테이너 model-prep"]
+    B --&gt; C{"S3 캐시"}
+    C --&gt;|"있음"| H["메인 컨테이너 API 8080"]
+    C --&gt;|"없음"| D["HF 다운로드 → 컴파일"]
     D --&gt; F["cp -r 로 S3 PVC에 복사"]
-    F --&gt; G
-    G --&gt; H["메인 컨테이너 - OpenAI 호환 API 8080"]</pre>
+    F --&gt; H</pre>
 <p>컴파일을 트리거하는 것은 별도 CLI가 아니라 <code>LLM(...)</code> 생성자 한 줄입니다.</p>
 <pre><code>LLM(model=..., max_num_seqs=4, max_model_len=1024, tensor_parallel_size=2,
     device=&#39;neuron&#39;, override_neuron_config={&#39;enable_bucketing&#39;: False})

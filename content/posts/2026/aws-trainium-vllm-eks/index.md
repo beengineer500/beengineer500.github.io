@@ -130,13 +130,12 @@ GPU 서빙에서는 컨테이너가 뜨고 가중치를 로드하면 끝이고, 
 
 ```mermaid
 flowchart TD
-    A["파드 스케줄 - my-scheduler"] --> B["init 컨테이너 model-prep"]
-    B --> C{"S3 PVC에 캐시가 있는가"}
-    C -->|"있음"| G["컴파일 건너뜀"]
-    C -->|"없음"| D["HF 다운로드 → neuronx-cc 컴파일"]
+    A["파드 스케줄 my-scheduler"] --> B["init 컨테이너 model-prep"]
+    B --> C{"S3 캐시"}
+    C -->|"있음"| H["메인 컨테이너 API 8080"]
+    C -->|"없음"| D["HF 다운로드 → 컴파일"]
     D --> F["cp -r 로 S3 PVC에 복사"]
-    F --> G
-    G --> H["메인 컨테이너 - OpenAI 호환 API 8080"]
+    F --> H
 ```
 
 컴파일을 트리거하는 것은 별도 CLI가 아니라 `LLM(...)` 생성자 한 줄입니다.

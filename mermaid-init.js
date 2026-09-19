@@ -21,6 +21,19 @@ function reveal() {
   root.classList.remove("mermaid-pending");
 }
 
+// mermaid는 svg에 width="100%"와 인라인 max-width만 남긴다. 고유 크기가 없어
+// Safari가 height:auto의 비율을 복원하지 못하고, 폭도 본문 너비와 무관하게 잘린다.
+// viewBox의 값을 width/height 속성으로 박아 두 문제를 함께 없앤다.
+function setIntrinsicSize(block) {
+  const svg = block.querySelector("svg");
+  if (!svg) return;
+  const viewBox = (svg.getAttribute("viewBox") || "").split(/\s+/);
+  if (viewBox.length !== 4) return;
+  svg.style.maxWidth = "";
+  svg.setAttribute("width", viewBox[2]);
+  svg.setAttribute("height", viewBox[3]);
+}
+
 async function render() {
   if (!blocks.length) return reveal();
 
@@ -37,6 +50,7 @@ async function render() {
 
   try {
     await mermaid.run({ nodes: blocks });
+    blocks.forEach(setIntrinsicSize);
   } catch (error) {
     // 실패하면 원본 텍스트라도 보이게 둔다.
     console.error("mermaid 렌더링 실패", error);
