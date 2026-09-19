@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>라우팅 판단을 프록시 밖으로 - llm-d의 CR 구조와 Envoy ext_proc · beengineer500</title>
+    <meta name="post-category" content="llm" />
+    <meta name="post-tags" content="llm-d, envoy, ext-proc, gateway-api, kubernetes" />
+    <meta name="description" content="llm-d가 어느 vLLM 파드로 요청을 보낼지 정하는 경로를 Envoy 필터 체인과 ext_proc 설정, 그리고 llm-d가 쓰는 CRD 사이의 의존성까지 따라간 기록" />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/llmd-envoy-ext-proc/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+    <script>
+      document.documentElement.classList.add("mermaid-pending");
+      setTimeout(function () { document.documentElement.classList.remove("mermaid-pending"); }, 3000);
+    </script>
+    <script type="module" src="/mermaid-init.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell article-shell" tabindex="-1">
+      <article class="article">
+        <header class="article-header">
+          <p class="eyebrow">llm</p>
+          <h1>라우팅 판단을 프록시 밖으로 - llm-d의 CR 구조와 Envoy ext_proc</h1>
+          <p class="lead">
+            llm-d가 어느 vLLM 파드로 요청을 보낼지 정하는 경로를 Envoy 필터 체인과 ext_proc 설정, 그리고 llm-d가 쓰는 CRD 사이의 의존성까지 따라간 기록
+          </p>
+          <p class="status-line">2026.09.20 · 34 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/llm.html">llm</a>
+            <a href="/tags/llm-d.html">llm-d</a>
+            <a href="/tags/envoy.html">envoy</a>
+            <a href="/tags/ext-proc.html">ext-proc</a>
+            <a href="/tags/gateway-api.html">gateway-api</a>
+            <a href="/tags/kubernetes.html">kubernetes</a>
+          </div>
+        </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
+
+        <section>
+<nav id="manual-toc" class="manual-toc" aria-label="목차">
+
+<h3>목차</h3>
+<p><strong><a href="#section-1">1부. 추론 라우팅이 별도 컴포넌트를 부르는 이유</a></strong></p>
+<ul>
+<li><a href="#s1-1">1.1 추론 요청이 일반 HTTP 요청과 다른 지점</a></li>
+<li><a href="#s1-2">1.2 llm-d의 두 조각 - Proxy와 EPP</a></li>
+</ul>
+<p><strong><a href="#section-2">2부. Envoy - 요청 경로 한가운데의 프록시</a></strong></p>
+<ul>
+<li><a href="#s2-1">2.1 리스너에서 엔드포인트까지 - 다섯 층</a></li>
+<li><a href="#s2-2">2.2 요청이 라우팅되는 순간</a></li>
+<li><a href="#s2-3">2.3 xDS - 재시작 없이 바뀌는 설정</a></li>
+<li><a href="#s2-4">2.4 해시 입력에 본문이 없다</a></li>
+</ul>
+<p><strong><a href="#section-3">3부. ext_proc - 판단을 프로세스 밖으로</a></strong></p>
+<ul>
+<li><a href="#s3-1">3.1 재컴파일 없이 확장하는 세 가지</a></li>
+<li><a href="#s3-2">3.2 외부에 물어보는 패턴은 이미 있었다</a></li>
+<li><a href="#s3-3">3.3 llm-d의 ext_proc 설정</a></li>
+<li><a href="#s3-4">3.4 목적지를 헤더로 받는 클러스터</a></li>
+</ul>
+<p><strong><a href="#section-4">4부. llm-d를 이루는 CR들</a></strong></p>
+<ul>
+<li><a href="#s4-1">4.1 llm-d가 직접 정의하는 CRD는 둘뿐</a></li>
+<li><a href="#s4-2">4.2 llm-d가 빌려 쓰는 CRD</a></li>
+<li><a href="#s4-3">4.3 EndpointPickerConfig는 CRD가 아니다</a></li>
+<li><a href="#s4-4">4.4 CR 사이의 의존성</a></li>
+<li><a href="#s4-5">4.5 EPP가 점수를 매기는 방식</a></li>
+</ul>
+<p><strong><a href="#section-5">5부. 적용부터 라우팅까지</a></strong></p>
+<ul>
+<li><a href="#s5-1">5.1 설치 순서</a></li>
+<li><a href="#s5-2">5.2 Standalone Mode와 Gateway Mode</a></li>
+<li><a href="#s5-3">5.3 P/D 분리는 CRD가 아니라 라벨</a></li>
+<li><a href="#s5-4">5.4 모델 여러 개 - base model마다 풀 하나</a></li>
+</ul>
+<p><strong><a href="#section-6">6부. 대가와 이름</a></strong></p>
+<ul>
+<li><a href="#s6-1">6.1 요청마다 늘어나는 홉</a></li>
+<li><a href="#s6-2">6.2 이름이 바뀐 것들</a></li>
+</ul>
+<p><strong><a href="#section-7">전체 흐름 정리</a></strong></p>
+<p><strong><a href="#section-8">출처</a></strong></p>
+</nav>
+
+<hr>
+</section>
+
+<section>
+<h2>1부. 추론 라우팅이 별도 컴포넌트를 부르는 이유</h2>
+<p><a id="s1-1"></a></p>
+<h3>1.1 추론 요청이 일반 HTTP 요청과 다른 지점</h3>
+<p>일반적인 웹 요청은 헤더만 보고 어디로 보낼지 정할 수 있습니다. 추론 요청은 그렇지 않습니다.</p>
+<ul>
+<li><strong>판단 근거가 본문에 있습니다</strong><ul>
+<li>어느 모델을 쓸지, 프롬프트가 얼마나 긴지, 앞부분이 이미 어느 파드에 캐시돼 있는지는 전부 JSON 본문 안에 있습니다. 헤더만 읽고 넘기는 경로로는 이 정보를 보지 못합니다.</li>
+</ul>
+</li>
+<li><strong>처리 시간이 요청마다 수십 배 차이 납니다</strong><ul>
+<li>토큰 20개를 생성하는 요청과 2,000개를 생성하는 요청이 같은 엔드포인트로 들어옵니다. 라운드 로빈은 이미 대기열이 긴 파드에 또 하나를 얹습니다.</li>
+</ul>
+</li>
+<li><strong>응답이 스트림입니다</strong><ul>
+<li>SSE로 토큰이 흘러나오는 동안 커넥션이 유지됩니다. 커넥션 단위로 분산하는 L4 로드밸런서는 첫 배정 이후 아무 조정도 하지 못합니다.</li>
+</ul>
+</li>
+</ul>
+<p>앞선 글에서 Kubernetes Service 직결과 load-only 라우터, prefix-aware 라우터에 같은 워크로드를 흘려 prefix cache hit rate가 33%·30%·65%로 갈리는 것을 실측했습니다. 그 65%를 만든 배선은 설정 파일 몇 줄과 CR 몇 개로 되어 있습니다.</p>
+<p><a id="s1-2"></a></p>
+<h3>1.2 llm-d의 두 조각 - Proxy와 EPP</h3>
+<figure>
+<img src="01-llmd-arch.webp" alt="llm-d 아키텍처 도식. 위쪽 client 두 개가 llm-d Router 점선 박스 안의 Proxy(e.g. Envoy)로 들어가고, Proxy에서 llm-d EPP로 화살표가 간다. Proxy는 Route to selected pods로 아래 Inference Pool을 가리키고, EPP는 Probing model replica state 곡선으로 Inference Pool을 관찰한다. Inference Pool 안에는 Variant A(Prefill)와 Variant B(Decode)가 Shared Prefix Caching으로 이어져 있다." />
+<figcaption>llm-d Router는 한 덩어리가 아니라 두 조각입니다. 트래픽이 지나가는 데이터플레인은 Envoy 같은 범용 프록시가 맡고, 어느 replica로 보낼지는 EPP가 모델 복제본 상태를 probing해 정합니다. 출처: <a href="https://github.com/llm-d/llm-d/blob/main/docs/assets/images/llm-d-arch.svg">llm-d 공식 아키텍처 도식</a> (Apache 2.0)</figcaption>
+</figure>
+
+<p><code>Proxy (e.g. Envoy)</code>에 <code>e.g.</code>가 붙은 것은 llm-d가 특정 프록시에 묶여 있지 않기 때문이고, 판단 로직이 <code>llm-d EPP</code>라는 별도 박스로 빠진 것은 그 로직이 프록시 바이너리 안으로 들어가지 않기 때문입니다.</p>
+<p>EPP는 Endpoint Picker의 약자입니다. 요청마다 &quot;이 요청은 어느 파드로&quot; 한 줄을 답하는 gRPC 서버입니다.</p>
+</section>
+
+<section>
+<h2>2부. Envoy - 요청 경로 한가운데의 프록시</h2>
+<p><a id="s2-1"></a></p>
+<h3>2.1 리스너에서 엔드포인트까지 - 다섯 층</h3>
+<p>Envoy 설정은 다섯 개 개념으로 이루어집니다.</p>
+<pre><code class="language-yaml">static_resources:
+  listeners:
+  - name: httpbin-demo
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 15001 }   # 1 Listener
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager      # 2 네트워크 필터
+        typed_config:
+          http_filters:
+          - name: envoy.filters.http.router                      # 3 HTTP 필터(터미널)
+          route_config:
+            virtual_hosts:
+            - domains: [&quot;*&quot;]
+              routes:
+              - match: { prefix: &quot;/&quot; }
+                route: { cluster: httpbin_service }              # 4 Route to Cluster
+  clusters:
+  - name: httpbin_service
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: httpbin, port_value: 8000 }  # 5 Endpoint
+</code></pre>
+<ul>
+<li><strong>Listener</strong> - 포트를 엽니다. 들어온 커넥션이 어떤 필터 체인을 탈지도 여기서 정합니다.</li>
+<li><strong>Network filter</strong> - 바이트 스트림을 프로토콜로 해석합니다. Envoy는 본질적으로 L3/L4 바이트 처리 엔진이고, MongoDB·Redis·Kafka용 필터가 같은 자리에 붙습니다. HTTP를 맡는 것이 HTTP Connection Manager(HCM)입니다.</li>
+<li><strong>HTTP filter</strong> - HCM 안에 또 하나의 필터 체인이 있습니다. CORS·RBAC·속도 제한이 여기 붙고, 체인은 반드시 <code>router</code> 터미널 필터로 끝나야 합니다.</li>
+<li><strong>Route</strong> - 경로·헤더·도메인을 보고 어느 cluster로 보낼지 정합니다.</li>
+<li><strong>Cluster</strong> - 업스트림 서비스 하나를 가리키는 논리 단위입니다. 그 안에 실제 IP인 endpoint들이 들어 있습니다.</li>
+</ul>
+<p>마지막 두 줄의 중첩을 보면 <code>clusters[].load_assignment.endpoints[].lb_endpoints[].endpoint.address</code>, endpoint가 cluster 안에 담겨 있습니다. cluster를 고르는 일과 그 안에서 IP 하나를 고르는 일은 별개입니다.</p>
+<p><a id="s2-2"></a></p>
+<h3>2.2 요청이 라우팅되는 순간</h3>
+<p>Envoy 공식 문서의 Life of a Request가 12단계로 적어둔 경로를 줄이면 이렇습니다.</p>
+<pre class="mermaid">flowchart LR
+    A["다운스트림 커넥션"] --&gt; B["Listener - accept"]
+    B --&gt; C["네트워크 필터 체인&lt;br/&gt;HCM이 마지막"]
+    C --&gt; D["HTTP 필터 체인&lt;br/&gt;스트림마다 하나씩"]
+    D --&gt; E["router 필터&lt;br/&gt;route 매칭 + cluster 선택"]
+    E --&gt; F["cluster의 LB&lt;br/&gt;endpoint 선정"]
+    F --&gt; G["업스트림"]</pre>
+<ul>
+<li><strong>cluster를 고르는 것은 <code>router</code> 필터입니다.</strong> HTTP 필터 체인 맨 끝의 터미널 필터이고, 이 필터가 헤더를 디코드하는 시점에 route 매칭과 cluster 선택이 함께 일어납니다.</li>
+<li><strong>endpoint를 고르는 것은 그 다음 단계입니다.</strong> cluster가 정해진 뒤 <code>lb_policy</code>가 실제 IP 하나를 뽑고, 이때 circuit breaker를 검사합니다.</li>
+<li><strong>응답은 정확히 역순으로 내려옵니다.</strong> 요청에서 마지막이던 필터가 응답에서는 처음입니다.</li>
+</ul>
+<p><code>router</code>가 체인의 마지막이라는 말은, 그 앞에 필터를 하나 끼우면 <strong>cluster가 정해지기 전에 요청을 만질 수 있다</strong>는 뜻입니다.</p>
+<p><a id="s2-3"></a></p>
+<h3>2.3 xDS - 재시작 없이 바뀌는 설정</h3>
+<p>위 YAML은 <code>static_resources</code>입니다. 파드가 뜨고 지는 환경에서 엔드포인트 목록을 파일에 박아둘 수는 없습니다. Envoy는 이 부분을 API로 받습니다.</p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>무엇을 받는가</th>
+<th>관계</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LDS</td>
+<td>Listener</td>
+<td>—</td>
+</tr>
+<tr>
+<td>RDS</td>
+<td>Route</td>
+<td>LDS의 부분집합</td>
+</tr>
+<tr>
+<td>CDS</td>
+<td>Cluster</td>
+<td>—</td>
+</tr>
+<tr>
+<td>EDS</td>
+<td>Endpoint</td>
+<td>CDS의 부분집합</td>
+</tr>
+<tr>
+<td>SDS</td>
+<td>인증서</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ADS</td>
+<td>위 전부를 하나의 스트림으로</td>
+<td>순서 보장</td>
+</tr>
+</tbody></table>
+<p>부트스트랩 설정 하나만 정적으로 두고 나머지를 전부 동적으로 받을 수 있습니다. 설정이 바뀌어도 프로세스를 재시작하지 않으므로, 스케일 인·아웃이 잦은 추론 파드 집합에 맞습니다.</p>
+<p>ADS가 따로 있는 것은 순서 때문입니다. RDS로 &quot;클러스터 foo로 가는 새 루트&quot;가 먼저 도착하고 foo를 담은 CDS 업데이트가 아직 안 왔으면, 그 사이 요청은 라우팅 오류가 납니다. ADS는 모든 변경을 직렬화된 한 스트림으로 흘려 이 경쟁 상태를 없앱니다.</p>
+<p>EDS가 CDS의 부분집합이라는 점도 여기서 쓰입니다. 파드가 하나 늘었을 때 cluster 정의 전체를 다시 밀 필요 없이 엔드포인트 목록만 갱신됩니다.</p>
+<p><a id="s2-4"></a></p>
+<h3>2.4 해시 입력에 본문이 없다</h3>
+<p>Envoy에도 &quot;같은 키는 같은 백엔드로&quot; 보내는 기능이 이미 있습니다. <code>RING_HASH</code>와 <code>MAGLEV</code>입니다. 호스트 하나가 빠졌을 때 재배치되는 요청은 ring hash에서 대략 1/N이고, maglev는 테이블 조회와 호스트 선택이 각각 10배·5배 빠른 대신 호스트 제거 시 이동하는 키가 ring hash의 두 배쯤 됩니다.</p>
+<p>해시할 수 있는 입력은 정해져 있습니다. <code>RouteAction.HashPolicy</code>가 받는 것은 다섯 가지입니다.</p>
+<table>
+<thead>
+<tr>
+<th>입력</th>
+<th>필드</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>요청 헤더</td>
+<td><code>header.header_name</code></td>
+</tr>
+<tr>
+<td>쿠키</td>
+<td><code>cookie.name</code></td>
+</tr>
+<tr>
+<td>커넥션 속성</td>
+<td><code>connection_properties.source_ip</code></td>
+</tr>
+<tr>
+<td>쿼리 파라미터</td>
+<td><code>query_parameter.name</code></td>
+</tr>
+<tr>
+<td>필터 상태</td>
+<td><code>filter_state.key</code></td>
+</tr>
+</tbody></table>
+<p><strong>요청 본문이 목록에 없습니다.</strong> 프롬프트 앞부분이 어느 파드에 캐시돼 있는지로 라우팅하려면 본문을 읽어야 하는데, Envoy의 consistent hashing은 본문을 해시 입력으로 받지 않습니다. 추론 라우팅에 별도 컴포넌트가 붙는 것은 이 제약 때문입니다.</p>
+</section>
+
+<section>
+<h2>3부. ext_proc - 판단을 프로세스 밖으로</h2>
+<p><a id="s3-1"></a></p>
+<h3>3.1 재컴파일 없이 확장하는 세 가지</h3>
+<p>끼울 자리가 있어도 필터를 만드는 비용은 따로 듭니다. Envoy는 C++로 쓰였고, 필터를 추가하려면 원칙적으로 Envoy를 다시 빌드해야 합니다. Istio가 그렇게 하고, 그 대가로 커스텀 빌드를 유지보수합니다.</p>
+<p>바이너리를 다시 만들지 않고 확장하는 방법은 세 가지입니다.</p>
+<ul>
+<li><strong>Lua</strong> - 스크립트를 필터로 실행합니다. 가볍지만 스크립트 안에서 할 수 있는 일이 제한됩니다.</li>
+<li><strong>Wasm</strong> - WebAssembly 모듈을 얹습니다. 언어 선택이 넓어지지만 빌드 체계가 따라붙습니다.</li>
+<li><strong>External processing</strong> - 처리를 Envoy 프로세스 밖의 gRPC 서버에 위임합니다. 서버를 어떤 언어로 쓰든 상관없고, 배포와 스케일도 따로 갑니다.</li>
+</ul>
+<p>llm-d의 스케줄링 로직은 KV 캐시 인덱스를 들고 있어야 하고 모델 서버 메트릭을 주기적으로 긁어야 합니다. 프록시 안에 두기에는 무거워서 세 번째를 씁니다.</p>
+<p><a id="s3-2"></a></p>
+<h3>3.2 외부에 물어보는 패턴은 이미 있었다</h3>
+<p>필터가 외부 서비스를 호출해 요청을 계속할지 결정하는 구조는 Envoy에 이미 있습니다. 글로벌 속도 제한이 그렇습니다.</p>
+<pre><code>요청 -&gt; 속도 제한 필터가 디스크립터(헤더·주소 등)를 뽑음
+     -&gt; 외부 속도 제한 서버(RLS)에 gRPC로 전송
+     -&gt; RLS가 Redis 카운터를 보고 판정
+     -&gt; 초과면 429 Too Many Requests + x-envoy-ratelimited: true
+</code></pre>
+<p>복제본이 몇 개든 같은 서버를 보기 때문에 전역 한도가 성립합니다. ext_proc도 같은 구조인데, 보내는 것이 디스크립터가 아니라 요청 전체이고 받는 것이 허용 여부가 아니라 목적지입니다.</p>
+<p><a id="s3-3"></a></p>
+<h3>3.3 llm-d의 ext_proc 설정</h3>
+<p>공식 문서는 ext_proc를 &quot;외부 프로세서라 불리는 외부 서비스를 필터 체인에 연결한다&quot;고 설명합니다. 인터페이스는 양방향 스트림 RPC 하나뿐입니다.</p>
+<pre><code class="language-protobuf">service ExternalProcessor {
+  rpc Process(stream ProcessingRequest) returns (stream ProcessingResponse) {}
+}
+</code></pre>
+<p>llm-d가 Kubernetes 없이 도는 예제에 실린 설정이 이렇습니다.</p>
+<pre><code class="language-yaml">http_filters:
+  - name: envoy.filters.http.ext_proc
+    typed_config:
+      &quot;@type&quot;: type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+      grpc_service:
+        envoy_grpc:
+          cluster_name: ext_proc
+          authority: localhost:9002
+        timeout: 10s
+      processing_mode:
+        request_header_mode: SEND
+        response_header_mode: SEND
+        request_body_mode: FULL_DUPLEX_STREAMED
+        response_body_mode: FULL_DUPLEX_STREAMED
+      message_timeout: 1000s
+</code></pre>
+<ul>
+<li><strong><code>request_header_mode: SEND</code></strong> - 요청 헤더를 EPP로 넘깁니다. <code>router</code>보다 앞이라 아직 cluster가 정해지지 않았습니다. 이 값은 기본값이기도 합니다.</li>
+<li><strong><code>request_body_mode: FULL_DUPLEX_STREAMED</code></strong> - 기본값은 <code>NONE</code>, 즉 본문을 아예 안 보냅니다. 추론 라우팅에서는 반드시 바꿔야 하는 값입니다. <code>BUFFERED</code>로 두면 본문을 다 모은 뒤 넘기므로 스트리밍 응답의 첫 토큰이 마지막 토큰을 기다립니다.</li>
+<li><strong><code>message_timeout: 1000s</code></strong> - 기본값은 200ms입니다. 다만 공식 문서는 body send mode가 <code>FULL_DUPLEX_STREAMED</code>일 때 이 타임아웃이 적용되지 않는다고 적고 있어서, 위 설정에서 1000s는 실질적으로 무해한 값에 가깝습니다.</li>
+</ul>
+<p>기본 동작은 응답을 받을 때까지 필터 체인을 멈추는 것입니다. 멈추지 않는 모드(<code>observability_mode</code>)가 따로 있습니다. ext_proc의 지연은 대부분 이 대기에서 옵니다.</p>
+<p><a id="s3-4"></a></p>
+<h3>3.4 목적지를 헤더로 받는 클러스터</h3>
+<p>EPP가 고른 파드를 Envoy에게 알리는 방법은 새 cluster를 만드는 것이 아닙니다. 헤더 한 줄입니다.</p>
+<pre><code class="language-yaml">- name: original_destination_cluster
+  type: ORIGINAL_DST
+  lb_policy: CLUSTER_PROVIDED
+  original_dst_lb_config:
+    use_http_header: true
+    http_header_name: x-gateway-destination-endpoint
+</code></pre>
+<p><code>ORIGINAL_DST</code>는 고정된 엔드포인트 목록이 없는 클러스터 타입입니다. <code>use_http_header: true</code>를 켜면 지정한 헤더 값을 그대로 목적지로 씁니다. <code>lb_policy: CLUSTER_PROVIDED</code>는 로드밸런싱을 Envoy가 하지 않는다는 뜻이라, 라운드 로빈도 least request도 여기서는 돌지 않습니다.</p>
+<p>Endpoint Picker 프로토콜 규격은 EPP가 두 군데에 같은 값을 쓰도록 요구합니다.</p>
+<ol>
+<li>HTTP 헤더 <code>x-gateway-destination-endpoint</code></li>
+<li>ext_proc 응답의 <code>dynamic_metadata</code>, 네임스페이스 <code>envoy.lb</code></li>
+</ol>
+<pre><code class="language-go">dynamicMetadata: {
+  &quot;envoy.lb&quot;: {
+    &quot;x-gateway-destination-endpoint&quot;: &quot;10.244.0.42:8000&quot;
+  }
+}
+</code></pre>
+<p><code>envoy.lb</code>인 이유는 Envoy의 subset 로드밸런싱이 호스트 메타데이터를 그 네임스페이스에서 읽기 때문입니다. 값은 콤마로 구분한 여러 개일 수 있고, 재시도가 설정돼 있으면 순서대로 내려갑니다. 헤더와 메타데이터에 서로 다른 값을 넣는 것은 규격이 금지합니다.</p>
+<pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant E as Envoy
+    participant P as EPP - gRPC 9002
+    participant V as vLLM Pod
+
+    C-&gt;&gt;E: POST /v1/chat/completions
+    E-&gt;&gt;P: ProcessingRequest - request_headers
+    E-&gt;&gt;P: ProcessingRequest - request_body
+    Note over P: queue / kv-cache / prefix 점수 계산
+    P--&gt;&gt;E: header_mutation + dynamic_metadata
+    E-&gt;&gt;V: ORIGINAL_DST로 10.244.0.42:8000에 직접 연결
+    V--&gt;&gt;C: SSE 토큰 스트림</pre>
+<p>적격 엔드포인트가 없으면 EPP는 <code>ImmediateResponse</code>로 503을, 과부하라 요청을 버려야 하면 429를 돌려줍니다. 둘 다 규격에 정해진 값입니다.</p>
+<p>EPP가 붙는 자리는 별도 cluster로 선언합니다.</p>
+<pre><code class="language-yaml">- name: ext_proc
+  type: STATIC
+  lb_policy: LEAST_REQUEST
+  health_checks:
+    - grpc_health_check:
+        service_name: &quot;envoy.service.ext_proc.v3.ExternalProcessor&quot;
+  load_assignment:
+    endpoints: [{ address: 127.0.0.1, port_value: 9002 }]
+</code></pre>
+<p><code>127.0.0.1:9002</code>입니다. EPP를 Envoy와 같은 호스트에 붙여 왕복을 루프백으로 줄입니다. Kubernetes 배포에서는 한 걸음 더 나가 Unix Domain Socket(<code>unix:///etc/ai-gateway-extproc-uds/run.sock</code>)을 씁니다.</p>
+</section>
+
+<section>
+<h2>4부. llm-d를 이루는 CR들</h2>
+<p><a id="s4-1"></a></p>
+<h3>4.1 llm-d가 직접 정의하는 CRD는 둘뿐</h3>
+<p>llm-d 조직의 저장소를 훑어 <code>kind: CustomResourceDefinition</code> 파일을 세면, 활성 저장소에서 llm-d가 자기 그룹으로 정의하는 CRD는 두 개입니다. 둘 다 <code>llm-d-router</code>에 있습니다.</p>
+<table>
+<thead>
+<tr>
+<th>apiVersion</th>
+<th>kind</th>
+<th>spec 필드</th>
+<th>하는 일</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>llm-d.ai/v1alpha2</code></td>
+<td><code>InferenceObjective</code></td>
+<td><code>poolRef</code>, <code>priority</code></td>
+<td>풀 안에서 워크로드 우선순위를 정합니다. 자원이 모자랄 때 누구를 먼저 처리할지</td>
+</tr>
+<tr>
+<td><code>llm-d.ai/v1alpha2</code></td>
+<td><code>InferenceModelRewrite</code></td>
+<td><code>poolRef</code>, <code>rules</code></td>
+<td>요청 본문의 <code>model</code> 값을 가중치에 따라 다른 이름으로 바꿉니다. A/B와 카나리</td>
+</tr>
+</tbody></table>
+<pre><code class="language-yaml">apiVersion: llm-d.ai/v1alpha2
+kind: InferenceObjective
+metadata:
+  name: premium-traffic
+spec:
+  priority: 100
+  poolRef:
+    name: flow-control
+</code></pre>
+<p><code>priority</code>는 높을수록 우선이고 음수도 됩니다. 같은 가이드가 <code>standard-traffic</code>에 <code>0</code>, <code>best-effort-traffic</code>에 <code>-10</code>을 줍니다.</p>
+<p>둘 다 라우팅 정책용이고, <strong>워크로드를 만드는 CRD는 llm-d에 없습니다.</strong> vLLM 파드를 띄우는 것은 CR이 아니라 Helm 차트와 kustomize입니다. 그 자리에 있던 <code>ModelService</code>(<code>llm-d.ai/v1alpha1</code>)는 저장소가 보관 처리되면서 은퇴했고, 후속은 CRD가 아니라 <code>llm-d-modelservice</code> Helm 차트입니다.</p>
+<p><a id="s4-2"></a></p>
+<h3>4.2 llm-d가 빌려 쓰는 CRD</h3>
+<p>나머지는 이미 있는 표준 API를 씁니다.</p>
+<table>
+<thead>
+<tr>
+<th>apiVersion</th>
+<th>kind</th>
+<th>주인</th>
+<th>llm-d에서의 역할</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>gateway.networking.k8s.io/v1</code></td>
+<td><code>Gateway</code></td>
+<td>Gateway API</td>
+<td>외부 진입점</td>
+</tr>
+<tr>
+<td><code>gateway.networking.k8s.io/v1</code></td>
+<td><code>HTTPRoute</code></td>
+<td>Gateway API</td>
+<td>Gateway와 InferencePool을 잇습니다</td>
+</tr>
+<tr>
+<td><code>inference.networking.k8s.io/v1</code></td>
+<td><code>InferencePool</code></td>
+<td>Gateway API Inference Extension</td>
+<td>파드 집합 + EPP 지정</td>
+</tr>
+<tr>
+<td><code>leaderworkerset.x-k8s.io/v1</code></td>
+<td><code>LeaderWorkerSet</code></td>
+<td>kubernetes-sigs/lws</td>
+<td>여러 노드에 걸친 모델 하나</td>
+</tr>
+<tr>
+<td><code>disaggregatedset.x-k8s.io/v1</code></td>
+<td><code>DisaggregatedSet</code></td>
+<td>kubernetes-sigs/lws</td>
+<td>역할별 배치. llm-d가 설치 스크립트로 lws v0.10.0을 박아 가져옵니다</td>
+</tr>
+<tr>
+<td><code>keda.sh/v1alpha1</code></td>
+<td><code>ScaledObject</code></td>
+<td>KEDA</td>
+<td>오토스케일링 대상</td>
+</tr>
+<tr>
+<td><code>monitoring.coreos.com/v1</code></td>
+<td><code>ServiceMonitor</code></td>
+<td>Prometheus Operator</td>
+<td>EPP·모델 서버 메트릭 수집</td>
+</tr>
+</tbody></table>
+<p><code>InferencePool</code>의 spec은 필드 세 개입니다.</p>
+<pre><code class="language-yaml">apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: llama32-1b
+spec:
+  selector:
+    matchLabels:
+      app: llama32-1b
+  targetPorts:
+    - number: 8000
+  endpointPickerRef:
+    name: llama32-1b-epp
+    port:
+      number: 9002
+    failureMode: FailClose
+</code></pre>
+<ul>
+<li><strong><code>selector</code></strong> - 같은 네임스페이스의 파드만 고릅니다. 라벨이 정확히 일치해야 하고, 최대 64개까지입니다.</li>
+<li><strong><code>targetPorts</code></strong> - 최대 8개. <code>podIP:portNumber</code> 각각이 별개 엔드포인트로 취급됩니다.</li>
+<li><strong><code>endpointPickerRef</code></strong> - EPP를 가리킵니다. <code>kind</code> 기본값은 <code>Service</code>이고 <code>ExternalName</code> Service는 금지돼 있습니다.</li>
+</ul>
+<p><code>failureMode</code>는 값이 어디서 오느냐에 따라 달라집니다. <strong>API 기본값은 <code>FailClose</code>인데 llm-d 차트의 기본값은 <code>FailOpen</code>입니다.</strong> 규격 문서만 보고 EPP가 죽으면 요청이 막힌다고 단정하면 실제 배포와 어긋나므로, 적용된 리소스에서 값을 직접 확인해야 합니다.</p>
+<p>이름만 보면 llm-d 것으로 오해하기 쉬운 리소스도 있습니다.</p>
+<ul>
+<li><strong><code>LLMInferenceService</code>는 llm-d 것이 아닙니다.</strong> KServe의 CRD(<code>serving.kserve.io</code>, 약칭 <code>llmisvc</code>)입니다. llm-d 저장소에는 이 정의가 하나도 없습니다.</li>
+<li><strong><code>VariantAutoscaling</code> CRD는 제거됐습니다.</strong> &quot;VariantAutoscaling CRD를 없앤다&quot;는 제안서가 Implemented 상태입니다. 지금은 KEDA <code>ScaledObject</code>나 HPA에 붙은 애노테이션으로 대상을 찾고 <code>wva_desired_replicas</code> 메트릭을 내보냅니다. 참고로 이 은퇴한 CRD의 그룹만 하이픈 없는 <code>llmd.ai</code>였습니다.</li>
+<li><strong><code>InferencePoolImport</code>는 llm-d가 쓰지 않습니다.</strong> 멀티클러스터용으로 규격에는 있지만 llm-d의 CRD 설치 스크립트가 적용하는 매니페스트에는 들어 있지 않습니다.</li>
+</ul>
+<p><a id="s4-3"></a></p>
+<h3>4.3 EndpointPickerConfig는 CRD가 아니다</h3>
+<p>EPP 설정은 CRD처럼 생겼습니다.</p>
+<pre><code class="language-yaml">apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+  - type: prefix-cache-affinity-filter
+  - type: token-load-scorer
+schedulingProfiles:
+  - name: default
+    plugins:
+      - pluginRef: prefix-cache-affinity-filter
+      - pluginRef: token-load-scorer
+</code></pre>
+<p><code>apiVersion</code>과 <code>kind</code>가 있으니 <code>kubectl apply</code>로 넣는 리소스처럼 보이지만, <strong>CRD 정의 파일이 존재하지 않습니다.</strong> <code>kubectl get endpointpickerconfigs</code>는 실패합니다.</p>
+<p>근거는 이렇습니다.</p>
+<ul>
+<li>저장소 어디에도 이 kind의 CRD YAML이 없습니다. 같은 저장소의 <code>InferenceObjective</code>는 CRD YAML과 clientset·informer·lister를 전부 갖고 있는데, 이쪽은 타입 정의와 deepcopy뿐입니다.</li>
+<li>Go 타입이 <code>metav1.TypeMeta</code>만 품고 <strong><code>metav1.ObjectMeta</code>가 없습니다.</strong> 이름도 네임스페이스도 없으니 API 서버가 저장할 수 없습니다.</li>
+<li>EPP 바이너리가 <code>--config-file</code>로 읽고, 그 파일은 ConfigMap으로 마운트됩니다. Helm 차트의 <code>pluginsCustomConfig</code> 값이 그 ConfigMap 내용이 됩니다.</li>
+</ul>
+<p>Kubernetes의 YAML 형식만 빌려 쓰고 API 서버에는 등록하지 않는 구조입니다. 그룹 이름을 정한 커밋도 이것을 <code>pseudo CRD</code>라고 적고 있습니다.</p>
+<p><a id="s4-4"></a></p>
+<h3>4.4 CR 사이의 의존성</h3>
+<p>참조가 어느 필드로 걸리는지까지 넣으면 이렇습니다.</p>
+<pre class="mermaid">flowchart TD
+    GW["Gateway&lt;br/&gt;gateway.networking.k8s.io/v1"]
+    HR["HTTPRoute"]
+    IP["InferencePool&lt;br/&gt;inference.networking.k8s.io/v1"]
+    IO["InferenceObjective / InferenceModelRewrite&lt;br/&gt;llm-d.ai/v1alpha2"]
+    SVC["Service - EPP"]
+    EPPD["EPP Deployment"]
+    CM["ConfigMap&lt;br/&gt;EndpointPickerConfig"]
+    PODS["모델 서버 파드&lt;br/&gt;Deployment 또는 LeaderWorkerSet"]
+
+    HR --&gt;|"parentRefs"| GW
+    HR --&gt;|"backendRefs.kind = InferencePool"| IP
+    IP --&gt;|"endpointPickerRef.name"| SVC
+    IP --&gt;|"selector.matchLabels"| PODS
+    SVC --&gt; EPPD
+    EPPD --&gt;|"--config-file 마운트"| CM
+    IO --&gt;|"poolRef.name"| IP</pre>
+<p>화살표가 가리키는 쪽이 먼저 있어야 합니다.</p>
+<ul>
+<li><strong><code>HTTPRoute.spec.rules[].backendRefs[].kind: InferencePool</code></strong> - 이 한 줄이 &quot;일반 로드밸런싱 말고 EPP에게 물어봐라&quot;로 해석됩니다. Service를 가리키면 평범한 kube-proxy 분산으로 돌아갑니다.</li>
+<li><strong><code>InferencePool.spec.selector</code></strong> - 라벨이 모델 서버 파드와 정확히 일치해야 합니다.</li>
+<li><strong><code>InferenceObjective.spec.poolRef</code></strong> - <code>group</code> 기본값이 <code>inference.networking.k8s.io</code>, <code>kind</code> 기본값이 <code>InferencePool</code>이라 실제로는 <code>name</code> 한 줄만 씁니다.</li>
+</ul>
+<p>EPP는 CR이 만들어주는 것이 아니라 평범한 Deployment와 Service입니다. <code>InferencePool</code>은 그것을 이름으로 가리키기만 하므로, EPP를 갈아끼울 때 풀 정의는 건드리지 않아도 됩니다.</p>
+<p>watch하는 주체는 둘입니다. Gateway 구현체 컨트롤러가 <code>HTTPRoute</code>와 <code>InferencePool</code>을 보고 프록시에 ext_proc 필터를 설정하고, EPP가 <code>InferenceObjective</code>와 <code>InferenceModelRewrite</code>를 보고 우선순위와 리라이트 규칙을 적용합니다. Deployment를 만드는 llm-d 컨트롤러는 없습니다.</p>
+<p><a id="s4-5"></a></p>
+<h3>4.5 EPP가 점수를 매기는 방식</h3>
+<p>스케줄링 프로파일은 네 종류의 플러그인으로 조립됩니다.</p>
+<ul>
+<li><strong>filter</strong> - 후보에서 빼는 단계입니다. <code>decode-filter</code>, <code>prefill-filter</code>, <code>utilization-filter</code> 같은 것들입니다.</li>
+<li><strong>scorer</strong> - 남은 후보에 점수를 매깁니다. 현재 구현에 21개가 등록돼 있습니다.</li>
+<li><strong>picker</strong> - 점수를 받아 하나를 고릅니다. <code>max-score-picker</code>, <code>random-picker</code>, <code>weighted-random-picker</code>.</li>
+<li><strong>profile handler</strong> - 프로파일이 여럿일 때 어느 것을 돌릴지 정합니다. P/D 분리에는 <code>disagg-profile-handler</code>를 씁니다.</li>
+</ul>
+<p>실습에서 쓴 프로파일은 스코어러 셋뿐이었습니다.</p>
+<pre><code class="language-yaml">plugins:
+  - type: queue-scorer
+  - type: kv-cache-utilization-scorer
+  - type: prefix-cache-scorer
+</code></pre>
+<ul>
+<li><strong><code>queue-scorer</code></strong> - 각 파드의 대기 요청 수.</li>
+<li><strong><code>kv-cache-utilization-scorer</code></strong> - KV 캐시 점유율. 꽉 찬 파드는 새 요청을 받으면 기존 시퀀스를 선점 축출하게 됩니다.</li>
+<li><strong><code>prefix-cache-scorer</code></strong> - 프롬프트 앞부분이 이미 어느 파드에 올라가 있는지.</li>
+</ul>
+<p><code>pluginRef</code>에 <code>weight</code>를 붙여 가중치를 줄 수 있습니다. 그래서 대기열이 가장 짧은 파드가 항상 뽑히지는 않습니다. 대기열이 한 칸 길어도 프리픽스가 캐시된 파드가 선택되는 경우가 있고, 프리필을 건너뛰는 이득이 더 크면 그쪽이 맞습니다.</p>
+<p>점수의 원천은 모델 서버가 노출하는 Prometheus 메트릭입니다. 규격이 요구하는 것이 셋, 프리픽스 스코어러가 쓰는 선택 항목이 둘입니다.</p>
+<table>
+<thead>
+<tr>
+<th>규격상 이름</th>
+<th>vLLM 메트릭</th>
+<th>쓰는 곳</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TotalQueuedRequests</td>
+<td><code>vllm:num_requests_waiting</code></td>
+<td>queue-scorer</td>
+</tr>
+<tr>
+<td>TotalRunningRequests</td>
+<td><code>vllm:num_requests_running</code></td>
+<td>queue-scorer</td>
+</tr>
+<tr>
+<td>KVCacheUtilization</td>
+<td><code>vllm:kv_cache_usage_perc</code></td>
+<td>kv-cache-utilization-scorer</td>
+</tr>
+<tr>
+<td>BlockSize (선택)</td>
+<td><code>vllm:cache_config_info{block_size}</code></td>
+<td>prefix-cache-scorer</td>
+</tr>
+<tr>
+<td>NumGPUBlocks (선택)</td>
+<td><code>vllm:cache_config_info{num_gpu_blocks}</code></td>
+<td>prefix-cache-scorer</td>
+</tr>
+</tbody></table>
+<p>모델 서버가 이 메트릭을 내보내지 않으면 스코어러는 점수를 매기지 못합니다. 그래도 라우팅은 계속 돌기 때문에 겉으로는 정상으로 보입니다. 실습에서 <code>llama.cpp</code>를 모델 서버로 썼을 때가 그랬습니다. EPP가 메트릭을 긁으러 갈 때마다 501이 돌아왔고, 요청은 정상 처리되지만 스코어링 신호는 비어 있었습니다.</p>
+</section>
+
+<section>
+<h2>5부. 적용부터 라우팅까지</h2>
+<p><a id="s5-1"></a></p>
+<h3>5.1 설치 순서</h3>
+<pre><code>1. CRD 등록
+   Gateway API standard-install.yaml
+   GAIE v1-manifests.yaml            (InferencePool)
+   llm-d-router manifests.yaml       (InferenceObjective, InferenceModelRewrite)
+2. Gateway 생성                       (Gateway Mode만)
+3. helm install llm-d-router-*        InferencePool + EPP ConfigMap/Deployment/Service/RBAC
+4. kubectl apply -k modelserver/      vLLM Deployment 또는 LeaderWorkerSet
+5. InferenceObjective 적용            (차트 값으로 만들거나 따로)
+</code></pre>
+<p>3번과 4번 사이는 라벨로 이어집니다. 차트가 만든 <code>InferencePool.spec.selector</code>와 모델 서버 파드의 라벨이 같아야 EPP가 그 파드를 발견합니다.</p>
+<p><code>ServiceMonitor</code>를 쓸 거라면 Prometheus Operator CRD가 먼저 있어야 하므로, 모니터링 스택을 라우터보다 먼저 설치합니다.</p>
+<p><a id="s5-2"></a></p>
+<h3>5.2 Standalone Mode와 Gateway Mode</h3>
+<p>차트가 둘로 갈리는 기준은 프록시를 누가 소유하느냐입니다.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Standalone Mode</th>
+<th>Gateway Mode</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>차트</td>
+<td><code>llm-d-router-standalone</code></td>
+<td><code>llm-d-router-gateway</code></td>
+</tr>
+<tr>
+<td>프록시</td>
+<td>차트가 <strong>직접 띄웁니다</strong> (Envoy 기본)</td>
+<td>기존 Kubernetes Gateway가 맡습니다</td>
+</tr>
+<tr>
+<td><code>Gateway</code></td>
+<td>필요 없음</td>
+<td>필요</td>
+</tr>
+<tr>
+<td><code>HTTPRoute</code></td>
+<td>만들지 않음</td>
+<td>만듭니다</td>
+</tr>
+<tr>
+<td>진입점</td>
+<td><code>&lt;release&gt;-epp</code> Service</td>
+<td>Gateway 주소</td>
+</tr>
+</tbody></table>
+<p>Standalone은 Gateway API 구현체 없이 llm-d만 세워볼 때 쓰고, Gateway Mode는 이미 Istio나 kgateway 같은 게이트웨이가 있는 클러스터에 얹을 때 씁니다. 두 차트 모두 <code>routerlib</code> 라이브러리 차트를 공유해서, 만드는 <code>InferencePool</code>과 EPP는 같습니다.</p>
+<p><a id="s5-3"></a></p>
+<h3>5.3 P/D 분리는 CRD가 아니라 라벨</h3>
+<p>prefill과 decode를 나누는 전용 리소스는 없습니다. 공식 문서도 전용 리소스가 아니라 파드 라벨로 표현한다고 적고 있습니다.</p>
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decode
+  labels:
+    llm-d.ai/role: decode
+</code></pre>
+<p><code>llm-d.ai/role=prefill</code>과 <code>llm-d.ai/role=decode</code>를 단 Deployment 둘이 <strong>같은 InferencePool 안에</strong> 들어갑니다. EPP는 그 라벨을 보고 어느 쪽이 prefill이고 어느 쪽이 decode인지 압니다.</p>
+<pre class="mermaid">flowchart LR
+    A["요청"] --&gt; B["프록시"]
+    B --&gt;|ext_proc| C["EPP&lt;br/&gt;라벨로 P/D 판별"]
+    C --&gt; D["라우팅 사이드카"]
+    D --&gt; E["prefill 파드&lt;br/&gt;프롬프트 처리"]
+    E --&gt;|"KV 블록 위치 메타데이터"| D
+    D --&gt; F["decode 파드"]
+    F --&gt;|"NIXL로 RDMA pull"| E
+    F --&gt; G["토큰 생성"]</pre>
+<p>decode 파드가 prefill이 만든 KV를 RDMA로 끌어옵니다. 이 전송을 맡는 것이 NIXL이고, 각 파드에 붙는 라우팅 사이드카가 경로를 중계합니다.</p>
+<p><a id="s5-4"></a></p>
+<h3>5.4 모델 여러 개 - base model마다 풀 하나</h3>
+<p>LoRA 어댑터처럼 같은 base model 위에 올라가는 모델이 여럿이면, 요청 본문의 <code>model</code> 값과 실제 파드 집합이 1:1로 맞지 않습니다. 그 차이를 헤더로 메웁니다.</p>
+<pre><code>본문 {&quot;model&quot;: &quot;food-review-1&quot;}
+  -&gt; 프록시가 ext_proc 호출
+  -&gt; base model이 Qwen/Qwen3-32B 임을 확인
+  -&gt; 헤더 X-Gateway-Base-Model-Name: Qwen/Qwen3-32B 설정
+  -&gt; HTTPRoute가 그 헤더로 매치해 qwen-pool 로 라우팅
+  -&gt; EPP가 엔드포인트 선택 (원래 모델 이름은 그대로 둠)
+  -&gt; 모델 서버가 food-review-1 LoRA 어댑터를 로드
+</code></pre>
+<p>base model 하나에 InferencePool 하나와 HTTPRoute 하나가 대응합니다. HTTPRoute가 <code>X-Gateway-Base-Model-Name</code>을 <code>Exact</code>로 매치하는 것도 그래서입니다. 실습에서 헤더를 바꿔 넣었을 때 응답의 모델명이 갈린 것도 같은 구조였습니다.</p>
+<pre><code>x-ai-eg-model: llama-3.2-1b   -&gt; &quot;model&quot;: &quot;bartowski/Llama-3.2-1B-Instruct-GGUF&quot;
+x-ai-eg-model: qwen2.5-0.5b   -&gt; &quot;model&quot;: &quot;Qwen/Qwen2.5-0.5B-Instruct-GGUF&quot;
+</code></pre>
+</section>
+
+<section>
+<h2>6부. 대가와 이름</h2>
+<p><a id="s6-1"></a></p>
+<h3>6.1 요청마다 늘어나는 홉</h3>
+<ul>
+<li><strong>홉이 하나 늘어납니다.</strong> 헤더와 본문 단계에서 gRPC 왕복이 일어나고, 그동안 필터 체인은 멈춥니다. EPP를 루프백이나 UDS로 붙이는 것은 이 왕복을 줄이기 위해서입니다.</li>
+<li><strong>버퍼 한도를 올려야 합니다.</strong> Envoy Gateway의 기본 버퍼 한도는 32KiB인데, AI 워크로드에는 모자라서 <code>bufferLimit: 50Mi</code>로 올립니다.</li>
+<li><strong>라우트 캐시를 비우는 동작이 인가와 얽힙니다.</strong> ext_proc가 라우팅 입력을 바꾸면 라우트를 다시 계산해야 합니다. 공식 문서는 RBAC처럼 라우트에 의존해 인가를 판단하는 필터가 ext_proc보다 먼저 도는 구성에서 이것이 위험해질 수 있다고 경고하고, 신뢰하는 외부 프로세서에만 켜고 <code>mutation_rules</code>로 바꿀 수 있는 헤더를 제한하라고 적고 있습니다.</li>
+</ul>
+<p>첫 토큰까지의 시간이 수백 밀리초인 워크로드에서 루프백 gRPC 한 번은 작은 비용입니다. 프리필을 통째로 건너뛰는 이득과 비교하면 더 그렇습니다. 물론 EPP의 판단이 맞을 때의 이야기이고, 모델 서버가 메트릭을 안 내보내면 이 계산은 성립하지 않습니다.</p>
+<p><a id="s6-2"></a></p>
+<h3>6.2 이름이 바뀐 것들</h3>
+<p>자료를 찾을 때 옛 이름에 걸리는 곳이 세 군데 있습니다.</p>
+<ul>
+<li><strong>Envoy AI Gateway는 Agent Router로 바뀌었습니다.</strong> <code>aigateway.envoyproxy.io</code>와 <code>envoyproxy/ai-gateway</code>가 각각 <code>theagentrouter.ai</code>와 <code>theagentrouter/agent-router</code>로 301 리다이렉트됩니다. 코드와 메인테이너는 그대로이고 Agentic AI Foundation 프로젝트로 옮겼습니다.</li>
+<li><strong><code>llm-d-inference-scheduler</code>는 <code>llm-d-router</code>로 바뀌었습니다.</strong> 옛 이름으로 적힌 저장소 경로는 지금 리다이렉트로만 열립니다.</li>
+<li><strong>EPP 구현체가 Gateway API Inference Extension에서 llm-d로 이관됐습니다.</strong> v1.6.0 릴리스 노트가 Endpoint Picker와 Body-Based Routing을 llm-d 저장소로 옮겼다고 적고 있습니다. 지금 규격 쪽에 남은 CRD는 <code>InferencePool</code>과 <code>InferencePoolImport</code> 둘뿐입니다.</li>
+</ul>
+<p>GAIE와 llm-d는 경쟁 관계가 아닙니다. API 규격은 GAIE가 들고 있고 구현체는 llm-d에 있습니다.</p>
+</section>
+
+<section>
+<h2>전체 흐름 정리</h2>
+<pre class="mermaid">flowchart TB
+    subgraph SETUP["설치"]
+        direction TB
+        C1["Gateway API CRD"] --&gt; C2["GAIE CRD - InferencePool"]
+        C2 --&gt; C3["llm-d-router CRD&lt;br/&gt;InferenceObjective"]
+        C3 --&gt; C4["helm install&lt;br/&gt;InferencePool + EPP"]
+        C4 --&gt; C5["kubectl apply -k&lt;br/&gt;vLLM Deployment"]
+    end
+
+    C5 --&gt; R1
+
+    subgraph REQ["요청 1건"]
+        direction TB
+        R1["POST /v1/chat/completions"] --&gt; R2["Listener + HCM"]
+        R2 --&gt; R3["ext_proc 필터가&lt;br/&gt;헤더와 본문을 EPP로"]
+        R3 --&gt; R4["EPP - filter, scorer, picker"]
+        R4 --&gt; R5["x-gateway-destination-endpoint&lt;br/&gt;+ envoy.lb metadata"]
+        R5 --&gt; R6["router 필터가&lt;br/&gt;ORIGINAL_DST 선택"]
+        R6 --&gt; R7["CLUSTER_PROVIDED가&lt;br/&gt;헤더 값으로 연결"]
+        R7 --&gt; R8["vLLM 파드&lt;br/&gt;SSE 토큰 스트림"]
+    end
+
+    C5 -.-&gt;|"selector 라벨이 맞아야&lt;br/&gt;EPP가 파드를 발견"| R4</pre>
+<p><strong>기억할 숫자</strong></p>
+<table>
+<thead>
+<tr>
+<th>값</th>
+<th>무엇</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2</td>
+<td>llm-d가 자기 그룹으로 정의하는 CRD 개수</td>
+</tr>
+<tr>
+<td>21</td>
+<td>llm-d-router에 등록된 scorer 플러그인 개수</td>
+</tr>
+<tr>
+<td>9002</td>
+<td>EPP의 ext_proc gRPC 기본 포트</td>
+</tr>
+<tr>
+<td>200ms</td>
+<td>ext_proc <code>message_timeout</code> 기본값</td>
+</tr>
+<tr>
+<td>32KiB</td>
+<td>Envoy Gateway 기본 버퍼 한도 (AI 워크로드에는 부족)</td>
+</tr>
+<tr>
+<td>64 / 8</td>
+<td><code>InferencePool</code>의 selector 라벨 최대 개수 / targetPorts 최대 개수</td>
+</tr>
+<tr>
+<td>1024 / 65537</td>
+<td>ring hash <code>minimum_ring_size</code> / maglev <code>table_size</code> 기본값</td>
+</tr>
+<tr>
+<td>33% · 30% · 65%</td>
+<td>Service 직결 · load-only · prefix-aware의 prefix cache hit rate</td>
+</tr>
+</tbody></table>
+</section>
+
+<section>
+<h2>출처</h2>
+<ul>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/configuration/http/http_filters/ext_proc_filter">Envoy - External Processing filter</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/api-v3/extensions/filters/http/ext_proc/v3/ext_proc.proto">Envoy - ExternalProcessor proto (v3)</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/api-v3/extensions/filters/http/ext_proc/v3/processing_mode.proto">Envoy - ProcessingMode proto (v3)</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/api-v3/service/ext_proc/v3/external_processor.proto">Envoy - external_processor.proto (gRPC 서비스 정의)</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/intro/life_of_a_request">Envoy - Life of a Request</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/api-docs/xds_protocol">Envoy - xDS 프로토콜</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/intro/arch_overview/upstream/load_balancing/load_balancers">Envoy - Supported load balancers (ring hash, maglev)</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/api-v3/config/route/v3/route_components.proto">Envoy - route_components.proto (RouteAction.HashPolicy)</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/intro/arch_overview/listeners/listeners">Envoy - Listeners</a></li>
+<li><a href="https://www.envoyproxy.io/docs/envoy/v1.39.1/intro/what_is_envoy">Envoy - What is Envoy</a></li>
+<li><a href="https://llm-d.ai/docs">llm-d - 공식 문서</a></li>
+<li><a href="https://llm-d.ai/docs/architecture">llm-d - Architecture</a></li>
+<li><a href="https://llm-d.ai/docs/api-reference/inferenceobjective">llm-d - InferenceObjective API 레퍼런스</a></li>
+<li><a href="https://llm-d.ai/docs/api-reference/inferencemodelrewrite">llm-d - InferenceModelRewrite API 레퍼런스</a></li>
+<li><a href="https://llm-d.ai/docs/api-reference/endpointpickerconfig">llm-d - EndpointPickerConfig API 레퍼런스</a></li>
+<li><a href="https://llm-d.ai/docs/well-lit-paths/foundations/pd-disaggregation">llm-d - P/D disaggregation</a></li>
+<li><a href="https://llm-d.ai/docs/well-lit-paths/foundations/multi-model-routing">llm-d - Multi-model routing</a></li>
+<li><a href="https://github.com/llm-d/llm-d/blob/main/guides/no-kubernetes-deployment/router/envoy/envoy.yaml">llm-d - no-kubernetes 배포용 envoy.yaml</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/tree/main/config/crd/bases">llm-d-router - CRD 정의</a></li>
+<li><a href="https://github.com/kubernetes-sigs/gateway-api-inference-extension/blob/main/docs/proposals/004-endpoint-picker-protocol/README.md">Gateway API Inference Extension - Endpoint Picker Protocol</a></li>
+<li><a href="https://github.com/kubernetes-sigs/gateway-api-inference-extension/blob/main/docs/proposals/003-model-server-protocol/README.md">Gateway API Inference Extension - Model Server Protocol (메트릭 규격)</a></li>
+<li><a href="https://gateway-api-inference-extension.sigs.k8s.io/api-types/inferencepool/">Gateway API Inference Extension - InferencePool</a></li>
+<li><a href="https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/tag/v1.6.0">Gateway API Inference Extension - v1.6.0 릴리스 노트 (EPP·BBR의 llm-d 이관)</a></li>
+<li><a href="https://theagentrouter.ai/docs/concepts/architecture/">Agent Router (구 Envoy AI Gateway) - Architecture</a></li>
+<li><a href="https://gateway.envoyproxy.io/docs/tasks/extensibility/ext-proc/">Envoy Gateway - External Processing 확장</a></li>
+</ul>
+</section>
+
+        <p class="article-back">
+          <a href="/posts/">글 인덱스로 돌아가기</a>
+        </p>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+          <a href="https://github.com/beengineer500">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

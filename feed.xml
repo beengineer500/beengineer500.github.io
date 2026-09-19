@@ -5,6 +5,13 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>라우팅 판단을 프록시 밖으로 - llm-d의 CR 구조와 Envoy ext_proc</title>
+      <link>https://beengineer500.github.io/posts/2026/llmd-envoy-ext-proc/</link>
+      <description>llm-d가 어느 vLLM 파드로 요청을 보낼지 정하는 경로를 Envoy 필터 체인과 ext_proc 설정, 그리고 llm-d가 쓰는 CRD 사이의 의존성까지 따라간 기록</description>
+      <pubDate>Sun, 20 Sep 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/llmd-envoy-ext-proc/</guid>
+    </item>
+    <item>
       <title>AWS Trainium에서 vLLM 서빙 - 첫 배포 8분과 재배포 20초를 가르는 Neuron 컴파일</title>
       <link>https://beengineer500.github.io/posts/2026/aws-trainium-vllm-eks/</link>
       <description>trn1.2xlarge 칩 1개의 NeuronCore 2개가 TP 2가 되고 init 컨테이너 컴파일과 S3 캐시가 파드 기동 시간을 8분에서 20초로 바꾸는 경로를 실제 값으로 따라갑니다</description>
