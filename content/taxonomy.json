@@ -1,7 +1,8 @@
 {
   "categories": {
     "setup": "블로그, 개발 도구, 초기 환경을 잡아두는 기록입니다.",
-    "llm": "LLM의 내부 구조와 추론 과정, 서빙 최적화를 파고든 기록입니다."
+    "llm": "LLM의 내부 구조와 추론 과정, 서빙 최적화를 파고든 기록입니다.",
+    "mlops": "ML 모델을 운영 서비스로 만들고 계속 개선하는 생애주기와 플랫폼을 다룬 기록입니다."
   },
   "tags": {
     "github-pages": "Pages 저장소, 배포 설정, 정적 호스팅에 관한 기록입니다.",
@@ -45,6 +46,10 @@
     "neuron": "Trainium과 Inferentia를 다루는 소프트웨어 스택 Neuron SDK의 기록입니다.",
     "envoy": "요청 경로 한가운데 서서 L7을 이해하는 프록시 Envoy의 구조와 확장 지점 기록입니다.",
     "ext-proc": "Envoy가 요청 처리를 외부 gRPC 서버에 위임하는 External Processing 필터 기록입니다.",
-    "gateway-api": "Kubernetes Gateway API와 추론 서빙용 확장인 Inference Extension 기록입니다."
+    "gateway-api": "Kubernetes Gateway API와 추론 서빙용 확장인 Inference Extension 기록입니다.",
+    "mlops": "모델 개발부터 배포, 모니터링, 재학습까지의 루프를 자동화하는 MLOps 기록입니다.",
+    "ml-lifecycle": "문제 정의에서 유지보수와 은퇴까지 ML 모델이 거치는 생애주기의 기록입니다.",
+    "lineage": "모델과 데이터가 어떤 코드·설정·데이터에서 만들어졌는지 추적하는 계보 기록입니다.",
+    "continuous-training": "코드가 아니라 데이터 변화를 트리거로 모델을 다시 학습시키는 지속 학습(CT) 기록입니다."
   }
 }
