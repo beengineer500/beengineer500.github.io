@@ -520,6 +520,22 @@ img {
   height: auto;
 }
 
+/* 테두리가 없으면 다크 테마에서 행과 열의 경계가 보이지 않는다. */
+.article table {
+  margin-top: var(--space-5);
+  border-collapse: collapse;
+}
+.article th,
+.article td {
+  border: 1px solid var(--border-strong);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+.article thead th {
+  background: var(--surface-muted);
+}
+
 .code-copy {
   position: absolute;
   top: var(--space-2);
