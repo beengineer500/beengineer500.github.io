@@ -172,6 +172,14 @@ All spacing derives from 4px.
 - **Accessibility**: `aria-label="코드 복사"`; button text also changes so the state is not color-only.
 - **Motion**: color and border transition only.
 
+### Article Table
+- **Structure**: Markdown pipe table with a header row. Every cell has a 1px `--border-strong` border (collapsed); the header row sits on `--surface-muted`. Authors write the plain pipe table and the stylesheet supplies all of this, so posts carry no inline table styles.
+- **Variants**: on screens 719px and narrower the table becomes a block that scrolls horizontally inside itself.
+- **Spacing**: `--space-5` above; cell padding `--space-2` by `--space-3`; text aligned left and top.
+- **States**: none.
+- **Accessibility**: borders stay visible in both themes, so rows and columns read apart without relying on background tint alone.
+- **Motion**: none.
+
 ### Footer
 - **Structure**: quiet divider, identity line, links.
 - **Variants**: stacked mobile, inline desktop.
