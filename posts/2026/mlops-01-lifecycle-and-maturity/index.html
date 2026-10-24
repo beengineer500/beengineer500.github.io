@@ -56,7 +56,7 @@
           <p class="lead">
             노트북 속 모델이 운영 서비스가 되기까지 거치는 생애주기 8단계와 MLOps 성숙도 3레벨을 정리합니다
           </p>
-          <p class="status-line">2026.10.24 · 28 min read</p>
+          <p class="status-line">2026.10.24 · 45 min read</p>
           <div class="note-tags article-tags" aria-label="분류와 태그">
             <a href="/categories/mlops.html">mlops</a>
             <a href="/tags/mlops.html">mlops</a>
@@ -76,12 +76,13 @@
 <ul>
 <li><a href="#s1-1">1.1 모델은 목적이 아니라 수단 - 간극을 묻는 5가지 질문</a></li>
 <li><a href="#s1-2">1.2 ML을 쓰기 전의 질문 - 휴리스틱으로 풀 수 있는가</a></li>
+<li><a href="#s1-3">1.3 ML 엔지니어의 역량 - 소프트웨어 공학·DevOps·데이터 과학</a></li>
 </ul>
 <p><strong><a href="#section-2">2부. ML 생애주기 - 문제 정의부터 유지보수까지</a></strong></p>
 <ul>
 <li><a href="#s2-1">2.1 실험 단계와 개발·스테이징·운영 단계</a></li>
 <li><a href="#s2-2">2.2 문제 정의 - 세 이해관계자의 질문</a></li>
-<li><a href="#s2-3">2.3 데이터 수집 - 계보를 남긴다</a></li>
+<li><a href="#s2-3">2.3 데이터 수집 - 편향·누수와 계보</a></li>
 <li><a href="#s2-4">2.4 EDA - 가정을 리스크로 다룬다</a></li>
 <li><a href="#s2-5">2.5 모델링과 학습 - 모델 = 코드 + 설정 + 데이터</a></li>
 <li><a href="#s2-6">2.6 평가와 검증 - 지표 선택과 홀드아웃 버전</a></li>
@@ -119,7 +120,7 @@
 </tr>
 </thead>
 <tbody><tr>
-<td>주행거리 20만 km</td>
+<td>주행거리 20만 km, 정확도 1~2%p</td>
 <td>1.2</td>
 </tr>
 <tr>
@@ -127,11 +128,19 @@
 <td>2.1, 3.1, 3.2</td>
 </tr>
 <tr>
+<td>3월 1일 거래와 3월 5일 평균 결제액</td>
+<td>2.3, 4.2</td>
+</tr>
+<tr>
 <td>레이어 6 → 4</td>
 <td>2.5</td>
 </tr>
 <tr>
 <td>차량 5대 오차 2·10만 원, 홀드아웃 MAE 120·118·180·135</td>
+<td>2.6</td>
+</tr>
+<tr>
+<td>메일 100통 (TP 6, FP 2, FN 4, TN 88)</td>
 <td>2.6</td>
 </tr>
 <tr>
@@ -208,7 +217,126 @@
     B --&gt;|"예"| C["규칙으로 시작&lt;br/&gt;나중에 ML로 교체 가능"]
     B --&gt;|"아니오"| D{"패턴이 고차원·비선형이고&lt;br/&gt;학습 데이터가 있는가"}
     D --&gt;|"예"| E["ML 후보 확정&lt;br/&gt;목표와 지표를 함께 정의"]</pre>
-<p>이 결정은 비즈니스 담당자와 기술 담당자가 함께 내립니다. 2.2절이 이 결정을 질문 목록으로 구체화합니다.</p>
+<p>휴리스틱은 데이터로 학습하지 않고 사람이 정한 규칙으로 문제를 푸는 방식입니다. 코드로는 대개 <code>if/else</code>, 임계값, 점수 공식, 조회 테이블입니다.</p>
+<table>
+<thead>
+<tr>
+<th>기준</th>
+<th>휴리스틱</th>
+<th>ML</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>규칙의 출처</td>
+<td>사람이 설계</td>
+<td>데이터에서 학습</td>
+</tr>
+<tr>
+<td>필요한 것</td>
+<td>도메인 지식</td>
+<td>라벨 데이터, 학습·배포·모니터링 인프라</td>
+</tr>
+<tr>
+<td>설명 가능성</td>
+<td>높음. 규칙을 그대로 읽으면 된다</td>
+<td>모델에 따라 낮음</td>
+</tr>
+<tr>
+<td>유지보수</td>
+<td>규칙을 직접 수정</td>
+<td>재학습, 드리프트 감시</td>
+</tr>
+<tr>
+<td>잘 맞는 경우</td>
+<td>규칙이 단순하고 안정적</td>
+<td>규칙이 복잡하고 패턴이 데이터에 있음</td>
+</tr>
+</tbody></table>
+<p>출시 첫날부터 동작하는 휴리스틱의 예는 이렇습니다.</p>
+<table>
+<thead>
+<tr>
+<th>문제</th>
+<th>휴리스틱</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>스팸 필터</td>
+<td>제목·본문에 &quot;무료 당첨&quot;, &quot;대출 승인&quot;이 있거나 링크가 5개를 넘으면 스팸</td>
+</tr>
+<tr>
+<td>카드 이상 거래</td>
+<td><code>amount &gt; 5 * user_avg_amount</code> 이고 결제 국가가 거주 국가와 다르면 검토</td>
+</tr>
+<tr>
+<td>수요 예측</td>
+<td>내일 판매량 = 지난주 같은 요일 판매량</td>
+</tr>
+<tr>
+<td>추천</td>
+<td>최근 7일 판매 상위 10개. 콜드 스타트에서는 인기순 추천이 정답일 때가 많다</td>
+</tr>
+<tr>
+<td>이탈 알림</td>
+<td>30일간 로그인이 없으면 이탈 위험</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>휴리스틱을 ML의 기준선(baseline)으로 쓴다</strong><ul>
+<li>먼저 휴리스틱을 만들어 비즈니스 지표를 잽니다. ML 모델은 이 숫자를 넘어야 합니다.</li>
+<li>정확도가 1~2%p 오르는 정도로는 학습 파이프라인, 피처 스토어, 서빙, 모니터링의 운영 비용을 정당화하기 어렵습니다.</li>
+</ul>
+</li>
+<li><strong>ML이 필요한 조건은 세 가지다</strong><ul>
+<li>규칙이 너무 많거나 복잡해서 사람이 다 쓸 수 없습니다. 이미지 인식과 자연어가 여기에 속합니다.</li>
+<li>규칙이 시간에 따라 자주 바뀝니다.</li>
+<li>라벨 데이터가 충분합니다.</li>
+</ul>
+</li>
+</ul>
+<p>ML을 쓸지는 비즈니스 담당자와 기술 담당자가 함께 정합니다. 2.2절이 그 판단을 질문 목록으로 구체화합니다.</p>
+<p><a id="s1-3"></a></p>
+<h3>1.3 ML 엔지니어의 역량 - 소프트웨어 공학·DevOps·데이터 과학</h3>
+<p>1장 1.2절은 MLOps를 세 분야의 교집합으로 그립니다(Figure 1.3).</p>
+<pre class="mermaid">flowchart LR
+    SE["소프트웨어 공학"] --&gt; M["MLOps&lt;br/&gt;세 원의 교집합"]
+    DO["DevOps"] --&gt; M
+    DS["데이터 과학"] --&gt; M</pre>
+<p>본문은 그림에 없는 데이터 엔지니어링을 하나 더 요구합니다.</p>
+<table>
+<thead>
+<tr>
+<th>분야</th>
+<th>저자가 요구하는 수준</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>소프트웨어 공학</td>
+<td>단순하지 않은 시스템을 배포해 본 경험. 디버깅과 성능 병목 분석</td>
+</tr>
+<tr>
+<td>데이터 과학</td>
+<td>알고리즘 전문가나 역전파의 세부까지는 불필요. TensorFlow·PyTorch·scikit-learn을 능숙하게 쓰고, 새 프레임워크를 빨리 익힘</td>
+</tr>
+<tr>
+<td>데이터 엔지니어링</td>
+<td>양질의 학습 데이터를 충분히 확보하는 일. 대부분의 실무자가 가장 어렵다고 꼽는 과제</td>
+</tr>
+<tr>
+<td>DevOps</td>
+<td>자동화와 실험 재현성. 개발·스테이징·운영에서 모델이 똑같이 동작해야 한다</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>규제 산업에서는 재현성이 감사 요건이 된다</strong><ul>
+<li>모델이 규제 준수나 감사 대상이 되면, 같은 조건에서 같은 모델을 다시 만들 수 있어야 합니다.</li>
+</ul>
+</li>
+<li><strong>모든 기술을 미리 갖출 필요는 없다</strong><ul>
+<li>책은 3장에서 Kubernetes 기본기부터 시작해 플랫폼을 한 블록씩 쌓습니다.</li>
+</ul>
+</li>
+</ul>
 <hr>
 </section>
 
@@ -276,10 +404,10 @@
 <li>검증</li>
 </ol>
 <p>실제로는 거의 모든 단계에서 앞 단계로 되돌아갑니다. 그래서 저자는 실험 단계부터 파이프라인을 쓰라고 권합니다. 노트북 셀을 손으로 실행하면 무엇을 바꿨는지 놓치기 때문입니다.</p>
-<p><strong>운영 단계</strong>는 같은 절차를 완전히 자동화합니다. 그리고 끝에 배포, 모니터링, 재학습을 붙입니다. 재학습이 파이프라인을 다시 실행하면 루프가 닫힙니다.</p>
+<p><strong>운영 단계</strong>는 같은 절차를 완전히 자동화합니다. 그리고 끝에 배포, 모니터링, 재학습을 붙입니다. 재학습이 파이프라인을 다시 실행하면 루프가 닫힙니다. 트리거는 CI에서 오거나 다른 프로그램의 호출에서 옵니다.</p>
 <ul>
 <li><strong>운영 단계에는 환경이 세 개다</strong><ul>
-<li>1장의 절 제목은 &quot;개발·스테이징·운영 단계&quot;입니다. 모델은 이 순서로 승격(<em>promote</em>)됩니다.</li>
+<li>1장의 절 제목은 &quot;개발·스테이징·운영 단계&quot;입니다. 파이프라인은 모델을 이 순서로 승격(<em>promote</em>)합니다.</li>
 <li>운영에는 스테이징에서 검증한 모델과 이미지를 그대로 배포합니다.</li>
 </ul>
 </li>
@@ -304,7 +432,7 @@
 파이프라인   [학습 · 평가 · 배포 파이프라인, 계속 개선      ]   수년
 기록         [모든 버전의 계보(lineage)가 쌓임             ]
 </code></pre>
-<p>이 관점은 3.3절의 성숙도 Level 1로 이어집니다.</p>
+<p>모델은 몇 달마다 바뀌고 파이프라인은 수년 동안 남습니다. 3.3절의 Level 1이 모델 대신 파이프라인을 배포하는 이유가 이 수명 차이입니다.</p>
 <p><a id="s2-2"></a></p>
 <h3>2.2 문제 정의 - 세 이해관계자의 질문</h3>
 <p>&quot;고객 이탈률을 예측하라&quot;는 문제 정의가 아닙니다. 아래 항목이 하나도 정해지지 않았습니다.</p>
@@ -360,13 +488,12 @@
 </ul>
 </li>
 <li><strong>법무 질문을 빠뜨리면 다시 학습해야 한다</strong><ul>
-<li>이탈 모델을 다 만든 뒤 상담 녹취에 별도 동의가 필요하다고 밝혀질 수 있습니다.</li>
-<li>그러면 해당 피처를 빼고 다시 학습합니다.</li>
+<li>이탈 모델을 다 만든 뒤에 상담 녹취에 별도 동의가 필요하다는 사실이 드러나면, 그 피처를 빼고 다시 학습해야 합니다.</li>
 </ul>
 </li>
 </ul>
 <p><a id="s2-3"></a></p>
-<h3>2.3 데이터 수집 - 계보를 남긴다</h3>
+<h3>2.3 데이터 수집 - 편향·누수와 계보</h3>
 <p>데이터 수집 단계의 편향은 이후 모든 단계로 전파됩니다. 데이터셋 요구사항은 관련성, 크기, 품질, 편향·누수 방지, 대표성, 다양성, 계보입니다. 저자는 이 중 계보를 가장 길게 다룹니다.</p>
 <aside class="callout">
 <p class="eyebrow">(용어) 계보 (lineage)</p>
@@ -386,7 +513,7 @@
     D -.-&gt;|"라벨 오류 발견"| F["labeled v2부터 다시 실행"]
     F -.-&gt; G["dataset v2"]</pre>
 <p>화살표마다 버전 관리되는 ETL 단계와 메타데이터(언제·어디서·어떻게·왜)가 붙습니다. 계보가 있으면 오류가 난 단계부터 다시 실행하면 됩니다.</p>
-<p>저자는 계보를 미루는 것을 기술 부채로 봅니다. 임시 스크립트는 처음에만 빠릅니다. 저자에 따르면 계보가 있으면 쿼리 하나로 오류 원인을 찾습니다. 계보가 없으면 추출 스크립트를 다시 짜야 합니다.</p>
+<p>저자는 계보를 미루는 것을 기술 부채로 봅니다. 임시 스크립트는 처음에만 빠릅니다. 데이터에서 오류가 나오면, 계보가 있는 팀은 쿼리 하나로 원인을 찾고 계보가 없는 팀은 추출 스크립트를 처음부터 다시 짭니다.</p>
 <ul>
 <li><strong>첫 데이터셋은 거의 최선이 아니다</strong><ul>
 <li>그래서 저자는 고칠 수 있는 데이터셋을 만들라고 합니다.</li>
@@ -398,7 +525,193 @@
 </ul>
 </li>
 </ul>
+<p>원문은 중고차 가격 모델의 수집 지침을 이렇게 정합니다. 중고 시장의 승용차 데이터는 모두 모으고, 트럭과 오토바이는 뺍니다. 표본이 목표 도메인을 대표하도록 샘플링하고, 버전 관리되는 ETL 파이프라인으로 데이터셋을 만듭니다.</p>
 <p>한 플랫폼에서만 수집한 데이터는 그 플랫폼의 고객층에 치우칠 수 있습니다. 지방 저가 차량이 부족하면 그 매물을 보강한 v2를 만듭니다. 버전 관리되는 ETL이 있으면 v1과 v2로 학습한 모델을 비교할 수 있습니다.</p>
+<h4>수집과 큐레이션</h4>
+<p>수집은 데이터를 어디서 얼마나 가져올지 정하는 일입니다. 큐레이션은 가져온 원시 데이터를 모델링에 쓸 수 있게 고르고 다듬는 일입니다.</p>
+<table>
+<thead>
+<tr>
+<th>큐레이션 작업</th>
+<th>내용</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>선별</td>
+<td>목적에 맞는 데이터만 고름</td>
+<td>흐릿하거나 잘린 신분증 이미지 제외</td>
+</tr>
+<tr>
+<td>정제</td>
+<td>오류·중복·결측 수정 또는 제거</td>
+<td>같은 거래의 중복 행, 음수 금액 제거</td>
+</tr>
+<tr>
+<td>균형 조정</td>
+<td>특정 부류 쏠림 완화</td>
+<td>사기가 0.1%면 사기 샘플 보강</td>
+</tr>
+<tr>
+<td>대표성 확보</td>
+<td>실제 운영 환경을 반영</td>
+<td>여러 국가·기기·조명의 신분증 포함</td>
+</tr>
+<tr>
+<td>문서화</td>
+<td>출처와 기준을 기록</td>
+<td>데이터 카드, 데이터셋 버전 태그</td>
+</tr>
+</tbody></table>
+<p>균형 조정은 학습 데이터에만 합니다. 검증·테스트 데이터까지 조정하면 분포가 운영 환경과 달라지고, 점수가 실제보다 높게 나옵니다.</p>
+<p>원문은 이 단계에서 연구와 기업이 갈린다고 봅니다. 연구자는 여러 차례 검토와 수정을 거친 대규모 오픈소스 데이터셋을 쓰고 품질이 충분하다고 가정합니다. 기업은 자기 도메인에 맞는 오픈 데이터셋이 없는 경우가 많습니다. 있더라도 배포 환경의 데이터로 미세 조정(전이 학습)을 해야 합니다.</p>
+<h4>편향과 누수</h4>
+<p>편향은 데이터가 현실과 다른 문제이고, 누수는 평가가 현실과 다른 문제입니다. 둘 다 학습 뒤에는 고치기 어렵습니다. 그래서 원문은 수집·큐레이션 단계에서 막으라고 합니다.</p>
+<table>
+<thead>
+<tr>
+<th>편향</th>
+<th>원인</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>표본 편향</td>
+<td>데이터가 세상을 골고루 담지 못함</td>
+<td>밝은 실내의 신분증만 학습하면 어두운 곳에서 휴대폰으로 찍은 사진을 못 찾음</td>
+</tr>
+<tr>
+<td>선택 편향</td>
+<td>라벨이 붙은 데이터가 특정 경우에 쏠림</td>
+<td>고객이 신고한 거래만 사기로 표시하면 신고되지 않은 사기를 놓침</td>
+</tr>
+<tr>
+<td>과거 편향</td>
+<td>과거의 불공정한 판단을 그대로 학습</td>
+<td>과거 대출 심사의 차별을 모델이 재현</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th>누수</th>
+<th>원인</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>샘플 중복</td>
+<td>같은 데이터가 학습과 테스트에 모두 들어감</td>
+<td>같은 신분증 사진이 두 번 수집됨</td>
+</tr>
+<tr>
+<td>미래 정보</td>
+<td>예측 시점에 알 수 없는 값을 피처로 씀</td>
+<td>3월 1일 거래의 사기 판정에 3월 5일에 계산한 &quot;최근 7일 평균 결제액&quot;을 씀</td>
+</tr>
+<tr>
+<td>정답 단서</td>
+<td>정답을 간접적으로 알려 주는 피처</td>
+<td>사기 확정 뒤에 생기는 &quot;계정 정지 여부&quot;를 피처로 씀</td>
+</tr>
+</tbody></table>
+<p>누수를 막는 규칙은 네 가지입니다.</p>
+<ol>
+<li>분할 전에 중복을 제거합니다.</li>
+<li>시간 순서가 있는 데이터는 무작위로 섞지 않고 시간 순서로 나눕니다.</li>
+<li>피처마다 &quot;예측 시점에 이 값을 알 수 있는가&quot;를 묻습니다.</li>
+<li>점수가 지나치게 좋으면 누수를 먼저 의심합니다.</li>
+</ol>
+<h4>라벨과 데이터셋 분할</h4>
+<p>라벨이 붙은 데이터는 입력 X와 정답 y의 쌍입니다. 라벨을 얻는 길은 세 가지입니다.</p>
+<table>
+<thead>
+<tr>
+<th>방법</th>
+<th>누가 정답을 붙이나</th>
+<th>책의 예</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>애노테이션</td>
+<td>사람이 직접</td>
+<td>CVAT로 신분증 둘레에 경계 상자를 그리고 ID 번호를 입력</td>
+</tr>
+<tr>
+<td>사건</td>
+<td>업무 중 생긴 기록</td>
+<td>고객이 &quot;내가 한 결제가 아니다&quot;라고 신고한 거래</td>
+</tr>
+<tr>
+<td>합성 데이터</td>
+<td>프로그램이 생성할 때 함께</td>
+<td>신분증 템플릿을 배경에 붙이면 네 모서리 좌표가 정답이 됨</td>
+</tr>
+</tbody></table>
+<p>합성 데이터는 사람의 라벨 오류가 없고 대량으로 만들 수 있습니다. 대신 실제와 너무 다르면 운영에서 성능이 떨어집니다. 그래서 합성 데이터로 학습하더라도 평가는 실제 데이터로 합니다.</p>
+<p>사람 애노테이션은 한 번으로 끝나지 않습니다. 사람과 모델이 번갈아 일하는 루프가 됩니다(<em>human-in-the-loop</em>).</p>
+<pre><code>1. 사람   CVAT에서 초기 라벨링
+2. 모델   그 라벨로 학습
+3. 모델   새 이미지의 경계 상자를 제안
+4. 사람   틀린 상자를 고치고 맞는 상자를 승인
+5. 모델   고친 라벨을 더해 재학습 → 3번으로
+</code></pre>
+<p>라벨이 붙은 데이터는 학습·검증·테스트로 나눕니다.</p>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>학습 (train)</th>
+<th>검증 (validation)</th>
+<th>테스트 (test)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>용도</td>
+<td>모델이 패턴을 학습</td>
+<td>하이퍼파라미터 조정, 모델 선택</td>
+<td>최종 성능 1회 측정</td>
+</tr>
+<tr>
+<td>학습에 쓰나</td>
+<td>예</td>
+<td>간접적으로 영향</td>
+<td>절대 아니오</td>
+</tr>
+<tr>
+<td>통상 비율</td>
+<td>60~80%</td>
+<td>10~20%</td>
+<td>10~20%</td>
+</tr>
+</tbody></table>
+<p>배포 뒤의 실시간 요청에는 정답이 없습니다. 사기 라벨은 신고까지 며칠이 걸립니다. 그래서 2.8절의 성능 모니터링은 라벨이 도착한 뒤에야 할 수 있습니다.</p>
+<p>영화 추천 프로젝트는 데이터셋을 다른 기준으로 한 번 더 나눕니다. 운영 중에 데이터가 계속 쌓이는 상황을 흉내 내려고 도착 시점별 조각으로 자릅니다.</p>
+<table>
+<thead>
+<tr>
+<th>버전</th>
+<th>포함된 데이터</th>
+<th>흉내 내는 상황</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>v1</td>
+<td>첫 조각</td>
+<td>서비스 시작 때 확보한 데이터</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>v1 + 두 번째 조각</td>
+<td>한 달 뒤 사용자 데이터 추가</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>v2 + 세 번째 조각</td>
+<td>두 달 뒤 또 추가</td>
+</tr>
+</tbody></table>
+<p>각 버전 안에서도 학습·검증·테스트 분할은 그대로 필요합니다.</p>
 <p><a id="s2-4"></a></p>
 <h3>2.4 EDA - 가정을 리스크로 다룬다</h3>
 <p>EDA(탐색적 데이터 분석)는 잘못 정의된 문제와 숨은 가정을 찾습니다. 검증 전의 가정은 리스크로 다룹니다.</p>
@@ -443,9 +756,64 @@
 </ul>
 </li>
 </ul>
+<p>변수 하나씩 보아서는 피처의 단서가 잘 드러나지 않습니다. 키와 몸무게를 따로 보면 둘 다 평범해도, 키에 비해 몸무게가 큰 사람이 있습니다. 이 관계가 BMI 같은 새 피처가 됩니다. 원문은 이런 다변량 분석(<em>multivariate analysis</em>)을 권합니다.</p>
+<p>변수가 수십<del>수백 개면 눈으로 볼 수 없습니다. 이때 차원 축소로 2</del>3차원에 그립니다.</p>
+<table>
+<thead>
+<tr>
+<th>기법</th>
+<th>방식</th>
+<th>강점</th>
+<th>주의</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PCA</td>
+<td>가장 넓게 퍼진 방향으로 선형 투영</td>
+<td>빠르고 결과가 일정함. 피처 축소에도 씀</td>
+<td>비선형 구조는 못 잡음</td>
+</tr>
+<tr>
+<td>t-SNE</td>
+<td>가까운 점끼리 가깝게 비선형 배치</td>
+<td>군집 구조 시각화</td>
+<td>느리고 실행마다 결과가 다름. 군집 간 거리는 해석하지 않음</td>
+</tr>
+</tbody></table>
+<p>EDA는 한 번으로 끝나지 않습니다. 실험이 실패할 때마다 가정을 다시 검토합니다.</p>
 <p><a id="s2-5"></a></p>
 <h3>2.5 모델링과 학습 - 모델 = 코드 + 설정 + 데이터</h3>
 <p>이 책의 모델링 절은 학습 기법 대신 <strong>학습 과정 추적</strong>을 다룹니다.</p>
+<p>모델링은 모델 유형을 고르는 데서 시작합니다. 유형은 모델이 무엇을 출력하는가로 나뉩니다.</p>
+<table>
+<thead>
+<tr>
+<th>유형</th>
+<th>질문</th>
+<th>출력</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>분류</td>
+<td>이것은 무엇인가</td>
+<td>정해진 범주 하나</td>
+<td>스팸 여부</td>
+</tr>
+<tr>
+<td>탐지</td>
+<td>무엇이 어디에 있는가</td>
+<td>범주와 위치(경계 상자)</td>
+<td>사진 속 신분증 위치</td>
+</tr>
+<tr>
+<td>회귀</td>
+<td>얼마인가</td>
+<td>연속적인 숫자</td>
+<td>중고차 가격</td>
+</tr>
+</tbody></table>
+<p>같은 소재도 출력에 따라 유형이 바뀝니다. 영화 평점을 &quot;좋음&quot;과 &quot;나쁨&quot; 중 하나로 맞히면 분류이고, &quot;3.7점&quot;으로 맞히면 회귀입니다.</p>
 <p>저자가 꼽는 MLOps 도구는 네 가지입니다.</p>
 <ul>
 <li>모델·데이터 버전 관리</li>
@@ -467,11 +835,61 @@ opt = Adam(lr=0.001)                  layers: 6
 → 사람이 매번 코드 수정               → 자동화 + 실행마다 기록
 </code></pre>
 <p>계보와 재현성을 위해 실행마다 설정을 기록합니다. 저자는 학습된 모델을 <strong>코드에 설정과 데이터를 적용한 산출물</strong>로 정의합니다.</p>
-<pre class="mermaid">flowchart LR
-    C["코드&lt;br/&gt;Git a1b2"] --&gt; M["model v12"]
-    S["설정&lt;br/&gt;config v7"] --&gt; M
-    D["데이터&lt;br/&gt;dataset v3"] --&gt; M</pre>
-<p>역방향으로는 model v12를 만든 코드 a1b2, 설정 v7, 데이터 v3를 찾습니다. 순방향으로는 dataset v3로 학습한 모델을 찾습니다.</p>
+<p>Figure 2.5는 이 정의를 재학습 파이프라인 두 단계로 나눕니다. 설정도 모델 설정과 학습 설정 두 개입니다.</p>
+<pre class="mermaid">flowchart TD
+    subgraph SETUP["셋업"]
+        W["사전학습 가중치"] --&gt; P1(("+"))
+        C["코드&lt;br/&gt;Git a1b2"] --&gt; P1
+        MC["모델 설정&lt;br/&gt;model-config v7"] --&gt; P1
+    end
+    P1 --&gt; M["모델&lt;br/&gt;구조 + 초기 가중치"]
+    subgraph TRAIN["학습"]
+        M --&gt; P2(("+"))
+        D["데이터셋&lt;br/&gt;dataset v3"] --&gt; P2
+        TC["학습 설정&lt;br/&gt;train-config v4"] --&gt; P2
+    end
+    P2 --&gt; T["학습된 모델&lt;br/&gt;model v12"]
+    T -.-&gt;|"다음 재학습의&lt;br/&gt;출발점"| W</pre>
+<p>다섯 입력은 각자 버전을 가집니다. 역방향으로는 model v12를 만든 사전학습 가중치, 코드 a1b2, 모델 설정 v7, 학습 설정 v4, 데이터 v3를 찾습니다. 순방향으로는 dataset v3로 학습한 모델을 찾습니다.</p>
+<ul>
+<li><strong>설정 파일만 고쳐 가설을 검증한다</strong><ul>
+<li>과적합이 의심되면 &quot;모델이 너무 크다&quot;는 가설을 세웁니다.</li>
+<li>코드를 열지 않고 <code>num_layers</code>나 <code>hidden_size</code>만 줄여 재학습합니다. 검증 성능이 오르면 가설이 맞습니다.</li>
+<li>설정 파일을 Git으로 추적하면, 성능이 떨어진 두 모델의 설정을 diff로 비교할 수 있습니다.</li>
+</ul>
+</li>
+<li><strong>모델 파일과 코드는 버전이 따로 바뀐다</strong><ul>
+<li>코드는 그대로 두고 새 데이터로 모델만 바꾸기도 합니다. 반대로 모델 파일은 그대로 두고 전처리 코드만 고치기도 합니다.</li>
+<li>그래서 코드는 Git에, 모델 파일은 레지스트리나 객체 스토리지에 둡니다. 모델에는 짝이 되는 코드 커밋을 메타데이터로 남깁니다.</li>
+</ul>
+</li>
+</ul>
+<p>모델 파일에 무엇이 들어 있는지는 저장 방식이 정합니다.</p>
+<table>
+<thead>
+<tr>
+<th>저장 방식</th>
+<th>담기는 것</th>
+<th>로드할 때 필요한 것</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>가중치만 (PyTorch <code>state_dict</code>)</td>
+<td>숫자(가중치)만</td>
+<td>모델 구조를 정의한 코드</td>
+</tr>
+<tr>
+<td>가중치 + 연산 구조 (TorchScript, ONNX, SavedModel)</td>
+<td>숫자와 연산 그래프</td>
+<td>원래 코드 없이 로드·실행 가능</td>
+</tr>
+<tr>
+<td>pickle 전체 객체</td>
+<td>클래스 경로를 포함한 객체 전체</td>
+<td>원래 클래스 코드와 같은 경로·버전</td>
+</tr>
+</tbody></table>
+<p><code>state_dict</code>로 저장한 가중치는 구조를 바꾼 코드에 넣으면 크기가 맞지 않아 오류가 납니다. 더 나쁜 경우에는 오류 없이 엉뚱한 결과가 나옵니다. pickle 파일은 로드할 때 코드를 실행할 수 있습니다. 그래서 출처를 모르는 모델 파일을 <code>pickle.load</code>하면 보안 위험이 있습니다.</p>
 <ul>
 <li><strong>실험 추적은 잘못된 결론을 막는다</strong><ul>
 <li>팀원 A가 레이어를 6에서 4로 줄였더니 검증 손실이 좋아졌다고 보고합니다.</li>
@@ -480,7 +898,7 @@ opt = Adam(lr=0.001)                  layers: 6
 </ul>
 </li>
 <li><strong>설정 항목을 너무 늘리지 않는다</strong><ul>
-<li>저자는 과도한 파라미터화(<em>overparametrization</em>)를 경계합니다.</li>
+<li>저자는 팩토리 패턴으로 설정에서 모델 객체를 만들라고 권합니다. 동시에 과도한 파라미터화(<em>overparametrization</em>)를 경계합니다.</li>
 <li>모든 값을 설정으로 빼면 설정 파일이 코드만큼 복잡해집니다. 자주 바꾸는 값부터 뺍니다.</li>
 </ul>
 </li>
@@ -527,6 +945,46 @@ Precision = TP / (TP + FP)   양성이라고 한 것 중 진짜 비율 → 헛�
 Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침이 아플 때
 </code></pre>
 <p>원문은 의료가 precision을, 금융이 recall을 중시할 수 있다고 예를 듭니다. 같은 의료라도 암 선별 검사는 recall이 우선입니다. 놓침이 치명적이기 때문입니다.</p>
+<p>메일 100통 중 진짜 스팸이 10통이라고 해봅시다. 모델이 8통을 스팸으로 판정했고, 그중 6통이 진짜입니다. 그러면 TP 6, FP 2, FN 4, TN 88입니다.</p>
+<table>
+<thead>
+<tr>
+<th>지표</th>
+<th>식</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Precision</td>
+<td>TP / (TP + FP)</td>
+<td>6 ÷ 8 = 0.75</td>
+</tr>
+<tr>
+<td>Recall</td>
+<td>TP / (TP + FN)</td>
+<td>6 ÷ 10 = 0.60</td>
+</tr>
+<tr>
+<td>F1</td>
+<td>2 × P × R / (P + R)</td>
+<td>0.90 ÷ 1.35 = 0.667</td>
+</tr>
+<tr>
+<td>Accuracy</td>
+<td>(TP + TN) / 전체</td>
+<td>94 ÷ 100 = 0.94</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>불균형 데이터에서는 Accuracy가 높게 나온다</strong><ul>
+<li>모든 메일을 정상이라고 찍어도 Accuracy는 0.90입니다.</li>
+</ul>
+</li>
+<li><strong>F1은 조화평균이라 한쪽이 낮으면 크게 떨어진다</strong><ul>
+<li>모든 메일을 스팸이라고 찍으면 Recall 1.0, Precision 0.1입니다. 산술평균은 0.55이고 F1은 0.18입니다.</li>
+</ul>
+</li>
+</ul>
 <p>차량 5대의 오차(만 원)로 평균 절대 오차(MAE)와 평균 제곱 오차(MSE)를 비교합니다.</p>
 <table>
 <thead>
@@ -579,6 +1037,23 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 </tr>
 </tbody></table>
 <p>같은 홀드아웃 버전끼리만 비교합니다.</p>
+<p>분할 규칙도 고정합니다. 학습·테스트·홀드아웃 분할이 바뀌면 예전 평가 데이터 일부가 새 학습 데이터로 들어갑니다. 그러면 이전 평가 점수를 믿을 수 없고, 재평가와 재학습이 필요합니다. 그래서 분할의 시드와 기준을 버전으로 남깁니다.</p>
+<p>원문은 점수 계산 뒤에 할 일을 세 가지 더 듭니다.</p>
+<ul>
+<li><strong>오분류 샘플을 분석해 데이터 수집으로 돌려보낸다</strong><ul>
+<li>틀린 샘플의 패턴에서 모델의 체계적 문제와 편향을 찾습니다.</li>
+</ul>
+</li>
+<li><strong>민감도와 견고성을 검사한다</strong><ul>
+<li>적대적 테스트와 엣지 케이스 시뮬레이션으로 운영에서 생길 오류를 미리 찾습니다.</li>
+</ul>
+</li>
+<li><strong>해석 가능성을 요구하는 조직도 있다</strong><ul>
+<li>피처 중요도와 결정 경계를 보거나, LIME·SHAP 같은 설명 기법을 씁니다.</li>
+<li>저자는 구현이 복잡하므로 요구사항과 비교해 도입을 정하라고 합니다.</li>
+</ul>
+</li>
+</ul>
 <p><a id="s2-7"></a></p>
 <h3>2.7 배포 - 평가한 모델을 그대로 배포한다</h3>
 <p>모델은 배포되어야 가치를 만듭니다. 저자는 배포 방식을 둘로 나눕니다.</p>
@@ -725,6 +1200,11 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <li>경보가 울리면 언제부터, 어느 모델 버전에서 나빠졌는지 알아야 합니다. 그 답은 2.3절의 계보에 있습니다.</li>
 </ul>
 </li>
+<li><strong>요청 로그로 엣지 케이스를 재현한다</strong><ul>
+<li>로그가 있으면 특정 코드 변경이 만든 문제를 추적할 수 있습니다.</li>
+<li>로그와 버전 기록을 함께 남기면 규제 산업에서 문서화 수단이 됩니다.</li>
+</ul>
+</li>
 <li><strong>알림이 담당자에게 닿아야 한다</strong><ul>
 <li>아무도 보지 않는 대시보드는 지표가 없는 것과 같습니다. 너무 많은 알림도 결과가 같습니다.</li>
 <li>수신자, 임계값, 런북을 미리 정합니다.</li>
@@ -867,6 +1347,7 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
     MLE["ML 엔지니어&lt;br/&gt;p99 80ms, 하루 2회 배포"] --&gt; T
     BIZ["비즈니스&lt;br/&gt;CS 비용 월 X원 절감"] --&gt; T</pre>
 <p>플랫폼 엔지니어가 학습 코드에 모델 로깅을 기본 설정하면, 데이터 과학자는 별도 작업 없이 버전을 남깁니다.</p>
+<p>7번의 예로 원문은 모델 레지스트리 솔루션만 최소 10가지라고 씁니다. 포괄적 솔루션은 데이터 관리나 계보 같은 핵심을 놓치는 경우가 많습니다. 그래서 저자는 전문 도구 몇 개와 포괄적 솔루션을 섞는 방식이 현재의 주류라고 봅니다.</p>
 <p>세 명의 팀이 첫 모델을 수작업으로 2주 만에 냅니다. 반년 뒤에는 모델 다섯 개의 학습 데이터를 추적하지 못합니다. 모델을 다시 만드는 데 석 달이 걸립니다.</p>
 <p><a id="s3-2"></a></p>
 <h3>3.2 DevOps와 다른 점 - CI/CD에 CT가 붙는다</h3>
@@ -959,10 +1440,26 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <td>자동</td>
 </tr>
 </tbody></table>
+<p>Google의 원 도식 세 장에는 공통으로 경계선 두 개가 있습니다. 가로 점선 위는 실험·개발·테스트 환경이고, 아래는 스테이징·운영 환경입니다. 세로 점선 <code>ML | Ops</code>는 데이터 과학자가 운영 쪽에 무엇을 넘기는지 보여 줍니다.</p>
+<figure>
+  <img src="01-google-mlops-level0.webp" alt="왼쪽에 데이터 추출, 데이터 준비, 모델 학습, 평가와 검증이 양방향 화살표로 이어진 수동 실험 상자가 있고, 학습된 모델이 모델 레지스트리를 거쳐 오른쪽 모델 서빙과 예측 서비스로 가는 도식. ML과 Ops를 나누는 세로 점선이 모델 레지스트리 위를 지난다">
+  <figcaption>Level 0에서 <code>ML | Ops</code> 경계는 <strong>모델 레지스트리</strong> 위를 지납니다. 데이터 과학자가 넘기는 것은 학습된 모델 파일 하나입니다. 왼쪽 수동 실험 단계는 양방향 화살표로 오가고, 운영 쪽에는 모니터링 상자가 없습니다. (출처: Google Cloud, <a href="https://docs.cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning">MLOps: Continuous delivery and automation pipelines in machine learning</a>, CC BY 4.0)</figcaption>
+</figure>
+
+<figure>
+  <img src="02-google-mlops-level1.webp" alt="가로 점선 위에 Orchestrated experiment 상자와 소스 저장소, Pipeline deployment가 있고, 점선 아래에 데이터 추출부터 모델 검증까지의 Automated pipeline, ML metadata store, Trigger, Performance monitoring, 예측 서비스가 있는 도식. ML과 Ops를 나누는 세로 점선이 소스 저장소 옆을 지난다">
+  <figcaption>같은 단계 목록이 점선 위(Orchestrated experiment)와 아래(Automated pipeline)에 두 번 그려져 있습니다. 실험과 운영이 같은 단계를 쓰는 이 구조가 <strong>실험-운영 대칭성</strong>입니다. <code>ML | Ops</code> 경계는 <strong>소스 저장소</strong> 옆으로 옮겨 갔고, 넘기는 것은 파이프라인 코드입니다. 아래쪽 Performance monitoring → Trigger → Automated pipeline 고리가 CT이고, 실행 기록은 ML metadata store에 쌓입니다. (출처: Google Cloud, <a href="https://docs.cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning">MLOps: Continuous delivery and automation pipelines in machine learning</a>, CC BY 4.0)</figcaption>
+</figure>
+
+<figure>
+  <img src="03-google-mlops-level2.webp" alt="Level 1 도식에 CI Build test and package pipeline components 상자와 Packages, CD Pipeline deployment 상자가 추가되고 1부터 6까지 번호가 붙은 도식. 오른쪽 위에는 ML과 Ops 구분 없이 MLOps라는 글자만 있다">
+  <figcaption>아래쪽 자동 파이프라인은 Level 1과 같습니다. 달라진 곳은 ②와 ③입니다. CI가 파이프라인 컴포넌트를 빌드·테스트·패키징하고, CD가 파이프라인 자체를 배포합니다. <code>ML | Ops</code> 경계선은 사라지고 오른쪽 위에 <strong>MLOps</strong> 하나만 남습니다. 넘기는 지점이 없고 조직 전체가 파이프라인을 소유한다는 뜻입니다. (출처: Google Cloud, <a href="https://docs.cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning">MLOps: Continuous delivery and automation pipelines in machine learning</a>, CC BY 4.0)</figcaption>
+</figure>
+
 <ul>
 <li><strong>Level 1의 핵심은 실험-운영 대칭성이다</strong><ul>
 <li>실험과 운영에서 같은 파이프라인을 씁니다(<em>experimental-operational symmetry</em>).</li>
-<li>노트북은 결측값을 평균으로 채우고 운영 코드는 0으로 채운다고 해봅시다. 같은 입력이 다른 피처가 됩니다. 이것이 학습-서빙 불일치입니다(4.2절).</li>
+<li>노트북은 결측값을 평균으로 채우고 운영 코드는 0으로 채운다고 해봅시다. 그러면 같은 입력이 학습 때와 서빙 때 다른 피처 값이 됩니다. 이런 어긋남을 학습-서빙 불일치라고 합니다(4.2절).</li>
 <li>같은 컴포넌트를 양쪽에서 쓰면 이 불일치가 생기지 않습니다.</li>
 </ul>
 </li>
@@ -986,6 +1483,82 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <p><a id="s4-1"></a></p>
 <h3>4.1 플랫폼을 점진적으로 키운다 - 직접 구축 vs 구매</h3>
 <p>1장 1.3절은 루프를 받치는 공통 기반으로 ML 플랫폼을 다룹니다. 데이터 웨어하우스와 레이크는 플랫폼 밖에 둡니다. 플랫폼은 Kubernetes 위의 Kubeflow에서 시작합니다.</p>
+<figure>
+  <img src="04-ml-platform-map.webp" alt="비즈니스 요구사항에서 문제 정의와 모델 설계를 거쳐, 파이프라인 오케스트레이션 점선 상자 안의 데이터 수집, 모델 학습, 평가와 검증, 모델 배포로 내려가고, 모델 API가 사용자 요청에 응답하는 도식. 옆에 피처 스토어, 실험 추적, 모델 레지스트리, 모델 모니터링이 있고 왼쪽 점선 경계 밖에 데이터 웨어하우스가 있다. 각 상자에 1부터 9까지 숫자나 A부터 E까지 알파벳이 붙어 있다">
+  <figcaption>책은 매 장 이 지도를 다시 그리고 그 장의 블록을 강조합니다. 숫자는 데이터가 흐르는 단계이고, 알파벳은 인프라 컴포넌트입니다. Model monitoring ⑧에서 Model training ④로 올라가는 <strong>Trigger</strong> 화살표가 2.9절의 재학습 루프입니다. Model API Ⓔ의 <strong>Streaming data</strong>가 점선 밖 Data warehouse ⑨로 돌아가는 화살표는 운영 데이터가 다음 학습 데이터가 된다는 뜻입니다. (출처: Benjamin Tan Wei Hao 외, <a href="https://www.manning.com/books/machine-learning-platform-engineering"><em>Machine Learning Platform Engineering</em></a>, Manning, Figure 1.4)</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr>
+<th>표시</th>
+<th>구성 요소</th>
+<th>범례 분류</th>
+<th>이 글 또는 책의 도구</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1, 2</td>
+<td>문제 정의·설계, 모델 설계</td>
+<td>사람 중심 단계</td>
+<td>2.2, 2.5</td>
+</tr>
+<tr>
+<td>3 ~ 6</td>
+<td>데이터 수집, 학습, 평가·검증, 배포</td>
+<td>파이프라인 컴포넌트</td>
+<td>2.3 ~ 2.7</td>
+</tr>
+<tr>
+<td>7</td>
+<td>사용자의 API 요청과 예측</td>
+<td>-</td>
+<td>2.7</td>
+</tr>
+<tr>
+<td>8</td>
+<td>모델 모니터링</td>
+<td>계보·추적 컴포넌트</td>
+<td>2.8</td>
+</tr>
+<tr>
+<td>9</td>
+<td>데이터 웨어하우스</td>
+<td>데이터·모델 저장</td>
+<td>플랫폼 밖</td>
+</tr>
+<tr>
+<td>A</td>
+<td>파이프라인 오케스트레이션</td>
+<td>-</td>
+<td>Kubeflow Pipelines</td>
+</tr>
+<tr>
+<td>B</td>
+<td>모델 레지스트리</td>
+<td>데이터·모델 저장</td>
+<td>MLflow</td>
+</tr>
+<tr>
+<td>C</td>
+<td>실험 추적</td>
+<td>계보·추적 컴포넌트</td>
+<td>MLflow</td>
+</tr>
+<tr>
+<td>D</td>
+<td>피처 스토어</td>
+<td>데이터·모델 저장</td>
+<td>Feast</td>
+</tr>
+<tr>
+<td>E</td>
+<td>모델 API</td>
+<td>고객 대면 컴포넌트</td>
+<td>BentoML</td>
+</tr>
+</tbody></table>
+<p>숫자와 알파벳의 순서는 책이 컴포넌트를 소개하는 순서이자, 파이프라인에서 데이터가 흐르는 순서입니다.</p>
 <p>저자는 플랫폼을 한 번에 완성하지 않습니다. 부족한 부분이 드러날 때마다 구성 요소를 하나씩 붙입니다.</p>
 <table>
 <thead>
@@ -1096,7 +1669,7 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <ul>
 <li><strong>파이프라인은 단계 사이의 전달을 맡는다</strong><ul>
 <li>Kubeflow Pipelines에서 각 단계는 컴포넌트입니다. 컴포넌트는 앞 출력을 받아 다음 컴포넌트로 넘깁니다.</li>
-<li>실행 순서와 입출력은 정의에 고정됩니다. 실행 기록도 남습니다.</li>
+<li>파이프라인 정의가 실행 순서와 입출력을 고정하고, Kubeflow Pipelines가 실행마다 기록을 남깁니다.</li>
 </ul>
 </li>
 <li><strong>피처 스토어의 이점은 두 가지다</strong><ul>
@@ -1124,11 +1697,58 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
         F --&gt;|"온라인"| R["실시간 추론"]
     end</pre>
 <p>학습은 km, 서빙은 마일을 쓰면 같은 차량의 주행거리가 60,000에서 약 37,000으로 입력됩니다.</p>
-<p>피처 스토어의 오프라인 모드는 학습용 대량 조회를, 온라인 모드는 실시간 추론용 저지연 조회를 맡습니다.</p>
+<p>피처 스토어는 저장소 두 개를 함께 둡니다. 피처 정의는 하나이고, 오프라인 스토어의 값을 온라인 스토어로 주기적으로 복사(<em>materialize</em>)해 최신 값을 유지합니다.</p>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>오프라인 스토어</th>
+<th>온라인 스토어</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>목적</td>
+<td>모델 학습, 배치 추론</td>
+<td>실시간 추론</td>
+</tr>
+<tr>
+<td>데이터 양</td>
+<td>과거 전체 이력</td>
+<td>엔티티별 최신 값</td>
+</tr>
+<tr>
+<td>응답 속도</td>
+<td>초~분 단위</td>
+<td>밀리초 단위</td>
+</tr>
+<tr>
+<td>저장소 예</td>
+<td>Parquet, S3, BigQuery</td>
+<td>Redis, DynamoDB</td>
+</tr>
+<tr>
+<td>조회 방식</td>
+<td>특정 시점 기준의 과거 값</td>
+<td>엔티티 키로 최신 값</td>
+</tr>
+</tbody></table>
 <ul>
+<li><strong>시점 기준 조회(<em>point-in-time</em>)는 미래 정보 누수를 막는다</strong><ul>
+<li>3월 1일 거래의 사기 여부를 학습할 때는 3월 1일에 알 수 있었던 값만 써야 합니다.</li>
+<li>피처 스토어는 타임스탬프를 기준으로 그때의 피처 값을 가져옵니다. 2.3절 누수 표의 두 번째 줄을 막는 기능입니다.</li>
+</ul>
+</li>
+<li><strong>피처 스토어의 내부 구성은 세 가지다</strong><ul>
+<li>피처 서버는 REST나 gRPC로 피처를 제공합니다.</li>
+<li>피처 레지스트리는 사용 가능한 피처를 목록으로 관리합니다.</li>
+<li>피처 스토리지는 피처를 영속적으로 저장합니다.</li>
+</ul>
+</li>
 <li><strong>레지스트리는 실행마다 산출물 전부를 남긴다</strong><ul>
-<li>산출물은 모델, 그래프, 메타데이터, 하이퍼파라미터, 지표입니다.</li>
-<li>승격과 롤백은 운영 표시를 옮기는 일이 됩니다.</li>
+<li>산출물은 모델, 플롯 이미지, 메타데이터, 하이퍼파라미터, 지표입니다.</li>
+<li>플롯 이미지는 손실 곡선과 혼동 행렬처럼 숫자 한 줄로 안 보이는 상태를 보여 줍니다.</li>
+<li>메타데이터는 데이터 버전, 코드 커밋, 실행 시각과 환경입니다. 모델 파일만으로는 &quot;이 모델이 어디서 왔는가&quot;에 답할 수 없습니다.</li>
+<li>레지스트리는 모델을 스테이징에서 운영으로 승격하고, <code>/model/123</code> 같은 엔드포인트로 노출할 수 있습니다. 승격과 롤백은 운영 표시를 옮기는 일이 됩니다.</li>
 </ul>
 </li>
 <li><strong>배포 자동화는 네 단계다</strong><ul>
@@ -1179,6 +1799,51 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 </tr>
 </tbody></table>
 <p>원리는 2.1절과 같습니다. 문서가 바뀌면 검색 결과가 바뀝니다. 프롬프트가 바뀌면 답이 바뀝니다.</p>
+<figure>
+  <img src="05-llmops-extension.webp" alt="왼쪽 점선 상자에 회색으로 처리된 전통적 MLOps 컴포넌트가 있고, 오른쪽 주황 점선 상자에 문서 수집, 임베딩 모델, 벡터 데이터베이스, 검색, 증강, LLM 생성, 입력과 출력 가드레일, 시맨틱 캐시, 모델 라우팅, Langfuse, 채팅 UI, 적대적 테스트, 시맨틱 평가, 비용 모니터링, 프롬프트 최적화 상자가 12와 13 장 번호와 함께 있는 도식">
+  <figcaption>책은 LLMOps 컴포넌트를 기존 블록에 연결합니다. RAG용 문서는 <strong>Documents for RAG</strong> 점선을 따라 기존 Data collection/preparation ③으로 들어갑니다. Cost monitoring의 점선도 기존 Model monitoring ⑧로 들어갑니다. 오른쪽 상자의 번호 12와 13은 그 컴포넌트를 다루는 장입니다. (출처: Benjamin Tan Wei Hao 외, <a href="https://www.manning.com/books/machine-learning-platform-engineering"><em>Machine Learning Platform Engineering</em></a>, Manning, Figure 1.5)</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr>
+<th>장</th>
+<th>그림 오른쪽의 컴포넌트</th>
+<th>도구</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>12장</td>
+<td>문서 수집 (PDF, MD, HTML) → 임베딩 → 벡터 DB → 검색 → 증강 → LLM 생성</td>
+<td>text-embedding-004, FAISS·Pinecone·Chroma, Gemini·OpenAI·Claude</td>
+</tr>
+<tr>
+<td>12장</td>
+<td>트레이스 시각화, 프롬프트 관리, 토큰 추적, 비용 귀속</td>
+<td>Langfuse</td>
+</tr>
+<tr>
+<td>12장</td>
+<td>스트리밍 응답과 출처 표시가 있는 채팅 UI</td>
+<td>Chainlit</td>
+</tr>
+<tr>
+<td>13장</td>
+<td>입력 가드레일 (개인정보, 경쟁사 언급, 프롬프트 인젝션), 출력 가드레일 (유해성, 정책, 콘텐츠 검증)</td>
+<td>Guardrails AI</td>
+</tr>
+<tr>
+<td>13장</td>
+<td>적대적 테스트, 의미 평가, 안전 설정</td>
+<td>Promptfoo, DeepEval, Gemini SafetySettings</td>
+</tr>
+<tr>
+<td>13장</td>
+<td>비용 모니터링, 프롬프트 최적화, 시맨틱 캐시, 모델 라우팅 (Flash Lite·Flash·Pro)</td>
+<td>RedisVL (시맨틱 캐시)</td>
+</tr>
+</tbody></table>
+<p>모델 라우팅은 질문의 난이도에 따라 단순 질문은 Flash Lite, 중간은 Flash, 복잡한 질문은 Pro로 보냅니다. 시맨틱 캐시는 의미가 같은 질문에 저장된 응답을 돌려줍니다. 둘 다 토큰 비용을 줄이는 장치입니다.</p>
 <p>저자는 도구를 짧은 PoC로 시험해 사용 사례에 맞게 고르라고 권합니다.</p>
 <p>책은 프로젝트 세 개를 씁니다.</p>
 <table>
@@ -1195,6 +1860,12 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <td>이미지 (MIDV-500, 합성 데이터)</td>
 <td>표 (MovieLens 1M)</td>
 <td>사내 문서 텍스트</td>
+</tr>
+<tr>
+<td>데이터 규모</td>
+<td>신분증 50종 × 영상 10편 = 500편</td>
+<td>사용자 6,000명, 영화 약 3,000편, 평점 100만 건</td>
+<td>-</td>
 </tr>
 <tr>
 <td>모델</td>
@@ -1215,6 +1886,8 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <td>벡터 DB, 가드레일, Langfuse 관측성, 비용</td>
 </tr>
 </tbody></table>
+<p>MIDV-500은 여러 나라의 신분증·여권·운전면허증 견본을 스마트폰으로 찍은 영상 데이터셋입니다. 책상 위, 키보드 위, 손에 든 상태처럼 촬영 조건이 다양합니다. COCO의 91개 클래스에는 신분증이 없습니다. 그래서 라벨이 붙은 데이터로 YOLO를 미세 조정합니다.</p>
+<p>MovieLens 1M은 2000년에 가입한 사용자의 익명 평점이고, <code>users.dat</code>, <code>movies.dat</code>, <code>ratings.dat</code> 세 파일입니다. 2.3절의 v1·v2·v3 조각 나누기를 이 데이터에 적용합니다.</p>
 <p>표 데이터는 드리프트를 바로 잴 수 있습니다. 주행거리 열의 평균과 분위수를 계산하면 됩니다. 이미지는 밝기, 해상도, 임베딩 같은 대리 지표부터 설계해야 합니다. 그래서 책은 피처 스토어와 드리프트를 영화 추천 프로젝트로 설명합니다.</p>
 <hr>
 </section>
@@ -1223,7 +1896,8 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <h2>전체 흐름 정리</h2>
 <pre><code>[1부] ML 모델은 수단이다
       어려움은 모델링이 아니라 간극 → 5가지 질문 (학습·데이터 경로·연동·실행 위치·정확도 유지)
-      첫 질문: 휴리스틱으로 풀 수 있는가
+      첫 질문: 휴리스틱으로 풀 수 있는가 → 휴리스틱이 ML의 baseline
+      필요한 역량: 소프트웨어 공학 ∩ DevOps ∩ 데이터 과학 + 데이터 엔지니어링
               │
               ▼
 [2부] 생애주기 = 닫힌 루프
@@ -1231,10 +1905,10 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
       실험 단계 (거의 자동, 사람이 실행) / 운영 단계 (완전 자동, 트리거가 실행)
 
       0 문제 정의   세 이해관계자가 함께, 재학습 지표까지 미리
-      1 데이터 수집 계보(lineage) - 고칠 수 있는 데이터셋
+      1 데이터 수집 편향·누수는 여기서 막는다, 계보(lineage) - 고칠 수 있는 데이터셋
       2 EDA        가정 = 리스크, 운영의 이상치까지
-      3 모델링     모델 = 코드 + 설정 + 데이터의 산출물
-      4 평가·검증   지표는 오류의 피해로 고른다, 홀드아웃도 버전 관리
+      3 모델링     (가중치 + 코드 + 모델 설정) → 모델, (모델 + 데이터 + 학습 설정) → 학습된 모델
+      4 평가·검증   지표는 오류의 피해로 고른다(F1 = 0.667), 홀드아웃과 분할 규칙도 버전 관리
       5 배포       평가한 모델 = 배포하는 모델, 스테이징은 평가 모드
       6 모니터링   데이터 → 성능 → 오류, 알림이 닿아야 의미
       7 유지보수   주기 + 임계값 트리거, 루프 전체에 분산, 출구는 은퇴
@@ -1244,12 +1918,14 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
       일곱 가지 어려움 ↔ 성숙한 조직의 이점, 좋은 실천을 기본 설정으로
       DevOps와 차이의 근원: 코드와 데이터가 함께 동작을 정함 → CI/CD + CT
       성숙도: 무엇을 배포하는가 - 모델(L0) → 파이프라인(L1) → 파이프라인을 만드는 시스템(L2)
+              ML | Ops 경계: 모델 레지스트리(L0) → 소스 저장소(L1) → 경계 없음(L2)
               │
               ▼
 [4부] 루프를 받치는 플랫폼
+      지도: 숫자 1~9 = 데이터 흐름 단계, 알파벳 A~E = 인프라 컴포넌트
       필요가 드러날 때마다 붙인다: Kubeflow Pipelines → Feast → MLflow → CI/CD
-      학습-서빙 불일치는 피처 정의 1벌로 막는다
-      LLMOps는 MLOps 위에 구성 요소를 더한다
+      학습-서빙 불일치는 피처 정의 1벌로, 미래 정보 누수는 시점 기준 조회로 막는다
+      LLMOps는 기존 블록(데이터 수집 ③, 모니터링 ⑧)에 구성 요소를 끼운다
               │
               ▼
       다음: 3장 Kubernetes 위에 실제 플랫폼을 올린다
@@ -1260,8 +1936,8 @@ Recall    = TP / (TP + FN)   진짜 양성 중 잡아낸 비율     → 놓침�
 <section>
 <h2>출처</h2>
 <ul>
-<li>Benjamin Tan Wei Hao, Varun Mallya, Shanoop Padmanabhan, <em>Machine Learning Platform Engineering</em>, Manning, 1장 <em>Getting started with MLOps and ML engineering</em>, 2장 <em>What is MLOps?</em> (O&#39;Reilly Learning에서 읽음)</li>
-<li>원문 2.5절이 기준으로 삼는 Google의 MLOps 레벨 정의 - Google Cloud, <em>MLOps: Continuous delivery and automation pipelines in machine learning</em></li>
+<li>Benjamin Tan Wei Hao, Varun Mallya, Shanoop Padmanabhan, <a href="https://www.manning.com/books/machine-learning-platform-engineering"><em>Machine Learning Platform Engineering</em></a>, Manning, 1장 <em>Getting started with MLOps and ML engineering</em>, 2장 <em>What is MLOps?</em> (O&#39;Reilly Learning에서 읽음). Figure 1.4, 1.5 인용</li>
+<li>원문 2.5절이 기준으로 삼는 Google의 MLOps 레벨 정의 - Google Cloud, <a href="https://docs.cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning"><em>MLOps: Continuous delivery and automation pipelines in machine learning</em></a>. Level 0·1·2 도식 인용 (CC BY 4.0)</li>
 </ul>
 </section>
 
