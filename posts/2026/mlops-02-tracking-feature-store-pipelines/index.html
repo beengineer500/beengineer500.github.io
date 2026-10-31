@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MLOps 2편. 실험 추적, 피처 스토어, 파이프라인 - MLflow·Feast·Kubeflow Pipelines · beengineer500</title>
+    <meta name="post-category" content="mlops" />
+    <meta name="post-tags" content="mlops, mlflow, feast, kubeflow-pipelines" />
+    <meta name="description" content="소득 분류기 예제로 MLflow 실험 추적과 모델 레지스트리, Feast 피처 스토어, Kubeflow Pipelines 배치 추론의 동작 원리를 정리합니다" />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/mlops-02-tracking-feature-store-pipelines/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell article-shell" tabindex="-1">
+      <article class="article">
+        <header class="article-header">
+          <p class="eyebrow">mlops</p>
+          <h1>MLOps 2편. 실험 추적, 피처 스토어, 파이프라인 - MLflow·Feast·Kubeflow Pipelines</h1>
+          <p class="lead">
+            소득 분류기 예제로 MLflow 실험 추적과 모델 레지스트리, Feast 피처 스토어, Kubeflow Pipelines 배치 추론의 동작 원리를 정리합니다
+          </p>
+          <p class="status-line">2026.10.31 · 39 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/mlops.html">mlops</a>
+            <a href="/tags/mlops.html">mlops</a>
+            <a href="/tags/mlflow.html">mlflow</a>
+            <a href="/tags/feast.html">feast</a>
+            <a href="/tags/kubeflow-pipelines.html">kubeflow-pipelines</a>
+          </div>
+        </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
+
+        <section>
+<nav id="manual-toc" class="manual-toc" aria-label="목차">
+
+<h3>목차</h3>
+<p><strong><a href="#section-1">1부. 신뢰할 수 있는 ML 시스템의 네 컴포넌트</a></strong></p>
+<ul>
+<li><a href="#s1-1">1.1 플랫폼 지도의 A·B·C·D</a></li>
+<li><a href="#s1-2">1.2 예제 - 소득 50K 이진 분류기</a></li>
+</ul>
+<p><strong><a href="#section-2">2부. MLflow - 실험 추적과 모델 레지스트리</a></strong></p>
+<ul>
+<li><a href="#s2-1">2.1 추적 서버가 답하는 세 질문</a></li>
+<li><a href="#s2-2">2.2 실험과 실행 - run에 남는 다섯 가지</a></li>
+<li><a href="#s2-3">2.3 자동 로깅 - 한 줄로 켜는 기록과 그 한계</a></li>
+<li><a href="#s2-4">2.4 정확도 대신 AUC로 비교하는 이유</a></li>
+<li><a href="#s2-5">2.5 모델 레지스트리 - 쿼리로 고르고 이름으로 등록</a></li>
+</ul>
+<p><strong><a href="#section-3">3부. Feast - 피처 스토어</a></strong></p>
+<ul>
+<li><a href="#s3-1">3.1 흩어진 피처와 조인 로직 - 세 범주로 나눈 파일</a></li>
+<li><a href="#s3-2">3.2 시점 정합 조회 - 5월 22일에는 5월 21일 값</a></li>
+<li><a href="#s3-3">3.3 오프라인 스토어와 온라인 스토어 - 구체화</a></li>
+<li><a href="#s3-4">3.4 Entity·DataSource·FeatureView와 피처 레지스트리</a></li>
+<li><a href="#s3-5">3.5 조회 인터페이스 - SDK 메서드 두 개와 피처 서버</a></li>
+</ul>
+<p><strong><a href="#section-4">4부. Kubeflow Pipelines - 배치 추론 오케스트레이션</a></strong></p>
+<ul>
+<li><a href="#s4-1">4.1 배치 추론 파이프라인의 공통 구조 - 4단계</a></li>
+<li><a href="#s4-2">4.2 컴포넌트 = 코드 + 이미지 + 명세</a></li>
+<li><a href="#s4-3">4.3 파이프라인 = DAG - 출력 참조가 의존성이 된다</a></li>
+<li><a href="#s4-4">4.4 컴포넌트 설계 원칙 네 가지와 이점 세 가지</a></li>
+<li><a href="#s4-5">4.5 배치 추론과 실시간 추론</a></li>
+</ul>
+<p><strong><a href="#section-5">전체 흐름 정리</a></strong> · <strong><a href="#section-6">출처</a></strong></p>
+</nav>
+
+<hr>
+</section>
+
+<section>
+<h2>1부. 신뢰할 수 있는 ML 시스템의 네 컴포넌트</h2>
+<p><a id="s1-1"></a></p>
+<h3>1.1 플랫폼 지도의 A·B·C·D</h3>
+<p>1편 4.2절은 ML 플랫폼의 도구 블록 네 개를 &quot;없을 때 무엇이 문제인가&quot;로 정리했습니다. 책의 4장과 5장은 그 블록을 실제 도구로 하나씩 채웁니다.</p>
+<figure>
+  <img src="01-platform-map.webp" alt="점선으로 둘러싼 ML 플랫폼 안에 문제 정의부터 모델 모니터링까지 번호 붙은 단계가 있고 피처 스토어 D와 모델 레지스트리 B는 주황색, 실험 추적 C는 초록색으로 강조된 개념도">
+  <figcaption>1편 4.1절의 플랫폼 지도를 4장은 이렇게 다시 그립니다. 4장은 주황·초록으로 칠한 <strong>D(피처 스토어), C(실험 추적), B(모델 레지스트리)</strong>를 채우고 5장은 가운데 점선 상자 <strong>A(파이프라인 오케스트레이션)</strong>를 채웁니다. 화살표 이름을 보면 각 블록이 주고받는 것이 정해져 있습니다. 학습(4)은 C에 파라미터와 지표를, B에 학습된 모델을 넘기고 D는 학습과 모델 API(E) 양쪽에 피처를 보냅니다. (출처: Benjamin Tan Wei Hao 외, <em>Machine Learning Platform Engineering</em>, Manning, Figure 4.1)</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr>
+<th>블록</th>
+<th>도구</th>
+<th>이 편에서 보는 것</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C 실험 추적</td>
+<td>MLflow Tracking</td>
+<td>실행마다 무엇을 남기고, 남긴 것으로 무엇을 비교하는가</td>
+</tr>
+<tr>
+<td>B 모델 레지스트리</td>
+<td>MLflow Model Registry</td>
+<td>어떤 실행의 모델을 어떤 이름과 단계로 내보내는가</td>
+</tr>
+<tr>
+<td>D 피처 스토어</td>
+<td>Feast</td>
+<td>같은 피처를 학습과 추론에 같은 시점 기준으로 주는 방법</td>
+</tr>
+<tr>
+<td>A 파이프라인</td>
+<td>Kubeflow Pipelines(KFP)</td>
+<td>위 세 도구를 사람 손 없이 순서대로 잇는 방법</td>
+</tr>
+</tbody></table>
+<p>4장 정리에서 저자는 MLflow와 Feast만으로는 부족하다고 씁니다. 새 데이터로 재학습하거나 피처를 갱신할 때 여전히 사람이 손으로 돌려야 하기 때문입니다. 5장의 KFP가 그 수동 단계를 맡습니다.</p>
+<p><a id="s1-2"></a></p>
+<h3>1.2 예제 - 소득 50K 이진 분류기</h3>
+<p>세 도구는 한 예제를 공유합니다. 미국 성인 인구조사(Adult/Census Income) 데이터로 소득이 50K 이하인지 초과인지 맞히는 이진 분류기입니다.</p>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>행 수</td>
+<td>30,162</td>
+</tr>
+<tr>
+<td>입력 컬럼</td>
+<td>범주형 8개 - Workclass, Education, Marital-Status, Occupation, Relationship, Race, Sex, Native_country</td>
+</tr>
+<tr>
+<td>타깃</td>
+<td><code>&lt;=50K</code> 22,654행, <code>&gt;50K</code> 7,508행 (7,508 ÷ 30,162 = 24.9%)</td>
+</tr>
+<tr>
+<td>원-핫 인코딩 뒤</td>
+<td>범주 값 98개 - 컬럼마다 첫 범주 1개씩 8개 제거 = 90개 컬럼</td>
+</tr>
+</tbody></table>
+<p>입력이 전부 범주형이라 모델에 넣기 전에 원-핫 인코딩을 합니다. 이때 만들어진 <strong>90개 컬럼의 순서</strong>는 모델의 일부입니다. 추론 때 같은 순서로 컬럼을 맞추지 못하면 모델이 다른 피처를 읽습니다. 그래서 책은 컬럼 목록을 <code>column_list.pkl</code>로 저장해 모델과 함께 기록합니다. 4.2절의 추론 컴포넌트가 이 파일을 다시 꺼내 씁니다.</p>
+<p>탐색 단계에서 그린 막대그래프 한 장은 Workclass별 고소득 비율을 비교합니다. Self-emp-inc(법인 자영업)의 50K 초과 비율이 가장 높습니다. 이런 그래프도 추적 대상입니다. 2.2절의 탐색 실행에 아티팩트로 남깁니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>2부. MLflow - 실험 추적과 모델 레지스트리</h2>
+<p><a id="s2-1"></a></p>
+<h3>2.1 추적 서버가 답하는 세 질문</h3>
+<p>1편 2.5절은 모델을 <strong>코드 + 설정 + 데이터의 산출물</strong>로 정의하고 추적 기록이 잘못된 결론을 막는 사례를 들었습니다. 4장은 무엇을 왜 추적하는지를 세 가지로 나눕니다.</p>
+<ul>
+<li><strong>재현성</strong> - 동료가 같은 결과를 다시 만들 수 있어야 합니다.</li>
+<li><strong>모델 선택</strong> - 구조와 지표가 서로 다른 후보 여러 개 중에서 하나를 골라야 합니다.</li>
+<li><strong>성능 추적</strong> - 고른 모델을 새 데이터로 재학습한 뒤 이전 반복과 비교해야 합니다.</li>
+</ul>
+<p>추적 대상 파라미터에는 학습·테스트 데이터, 모델 가중치, 정확도 지표가 들어갑니다. 책은 먼저 기록 방법 두 가지를 검토하고 아래 문제 때문에 쓰지 않습니다.</p>
+<table>
+<thead>
+<tr>
+<th>방법</th>
+<th>문제</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>버전 관리 시스템에 커밋하고 태그 달기</td>
+<td>실험할 때마다 커밋과 태그를 붙여야 하고, 나중에 원하는 커밋을 찾기 번거롭다</td>
+</tr>
+<tr>
+<td>파라미터를 파일에 저장해 노트북과 함께 공유</td>
+<td>받은 사람이 자기 환경에서 재현하려면 파일 사용법을 따로 설명해야 한다</td>
+</tr>
+</tbody></table>
+<p>MLflow는 실험 파라미터를 받아 두는 <strong>추적 서버</strong>를 둡니다. 노트북은 서버 주소와 실험 이름만 지정하고 기록을 보냅니다.</p>
+<pre><code class="language-python">mlflow.set_tracking_uri(&quot;http://localhost:5000&quot;)
+mlflow.set_experiment(&quot;income-classifier&quot;)
+</code></pre>
+<p>추적 서버는 아래 세 질문에 답해야 합니다.</p>
+<pre><code>지금 운영에 배포된 모델 버전은 무엇인가     → 2.5 레지스트리의 단계(stage)
+어떤 파라미터가 최고 결과를 냈는가         → 2.2 실행 기록 + 2.5 쿼리
+6개월 전의 결과를 재현할 수 있는가          → 2.2 데이터셋·모델 아티팩트
+</code></pre>
+<p><a id="s2-2"></a></p>
+<h3>2.2 실험과 실행 - run에 남는 다섯 가지</h3>
+<p>MLflow의 기록 단위는 <strong>실험</strong>(experiment)과 <strong>실행</strong>(run) 두 층입니다. 실험은 같은 문제를 푸는 실행의 묶음이고 여기서는 <code>income-classifier</code> 하나입니다. 실행은 <code>with mlflow.start_run():</code> 블록 하나이고 한 번의 작업 단위입니다. 책은 탐색 분석 한 번과 모델 학습 한 번을 서로 다른 실행으로 나눕니다. 탐색 단계의 범주별 막대그래프 8장은 <code>eda-</code>로 시작하는 탐색 실행에 따로 남습니다.</p>
+<p>모델 학습 실행 하나에 남는 것은 다섯 종류입니다.</p>
+<table>
+<thead>
+<tr>
+<th>종류</th>
+<th>API</th>
+<th>소득 분류기에서 남긴 것</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>파라미터</td>
+<td><code>log_params</code></td>
+<td>모델 하이퍼파라미터</td>
+</tr>
+<tr>
+<td>지표</td>
+<td><code>log_metric</code></td>
+<td><code>roc_auc_score_train</code>, <code>roc_auc_score_test</code>, <code>training_accuracy</code>, <code>test_accuracy</code></td>
+</tr>
+<tr>
+<td>아티팩트</td>
+<td><code>log_artifact</code></td>
+<td>원-핫 컬럼 순서를 담은 <code>column_list.pkl</code></td>
+</tr>
+<tr>
+<td>데이터셋</td>
+<td><code>log_input</code></td>
+<td>학습·테스트·참조 데이터셋</td>
+</tr>
+<tr>
+<td>모델</td>
+<td><code>sklearn.log_model</code></td>
+<td>학습된 결정 트리</td>
+</tr>
+</tbody></table>
+<p>데이터셋 기록은 두 단계입니다. 먼저 판다스 데이터프레임을 객체 스토리지에 저장합니다. 그다음 <code>mlflow.data.from_pandas</code>로 그 데이터프레임과 저장 경로를 묶어 <strong>MLflow 데이터셋</strong>을 만들고 <code>log_input</code>으로 실행에 연결합니다.</p>
+<pre><code class="language-python">with mlflow.start_run() as run:
+    training_dataset = mlflow.data.from_pandas(
+        train_df, source=f&quot;{BUCKET_NAME}/{train_df_path}&quot;)
+    mlflow.log_input(training_dataset, context=&quot;training&quot;)
+    mlflow.log_input(test_dataset, context=&quot;testing&quot;)
+    mlflow.log_input(feature_dataset, context=&quot;reference&quot;)
+
+    tree.fit(X_train, y_train.ravel())
+    mlflow.log_metric(&quot;roc_auc_score_test&quot;, roc_auc_score_test)
+    mlflow.sklearn.log_model(tree, &quot;income-classifier&quot;)
+</code></pre>
+<p><code>context</code>는 그 데이터셋이 실행에서 맡은 역할입니다. <strong>참조(reference) 데이터셋</strong>은 학습과 테스트에 쓰인 사용자를 모두 포함한 전체 피처 데이터입니다.</p>
+<p>MLflow는 데이터프레임 내용 자체가 아니라 <strong>메타데이터</strong>를 기록합니다. 컬럼 이름과 타입, 행 수, 그리고 원본이 저장된 경로입니다. 실제 파일은 객체 스토리지에 있고 실행은 그 위치를 가리킵니다. 6개월 뒤에 같은 학습을 재현하려면 이 경로에서 같은 데이터를 다시 받으면 됩니다.</p>
+<p>모델도 같은 원리입니다. <code>log_model</code>은 모델 파일과 함께 실행에 필요한 의존성 목록을 저장합니다. MLflow는 scikit-learn, XGBoost, TensorFlow, PyTorch 같은 프레임워크마다 저장·로드 메서드를 따로 제공합니다. 그래서 4.2절의 추론 컴포넌트는 모델 종류에 맞는 로더만 고르면 됩니다.</p>
+<p><a id="s2-3"></a></p>
+<h3>2.3 자동 로깅 - 한 줄로 켜는 기록과 그 한계</h3>
+<p>결정 트리와 랜덤 포레스트는 지표를 하나씩 <code>log_metric</code>으로 남겼습니다. XGBoost 실행은 <strong>자동 로깅</strong>(autologging)을 씁니다.</p>
+<pre><code class="language-python">with mlflow.start_run():
+    mlflow.xgboost.autolog()
+    model = xgb.train(params, dtrain, n_round)
+</code></pre>
+<p><code>autolog()</code> 한 줄을 학습 호출 앞에 두면 학습 함수 호출을 MLflow가 가로채 파라미터, 학습 중 지표, 모델, 피처 중요도 그래프를 자동으로 남깁니다. 다만 자동 로깅에는 한계가 두 가지 있습니다.</p>
+<ul>
+<li><strong>커스텀 지표는 남지 않는다</strong><ul>
+<li>자동 로깅은 라이브러리가 아는 지표만 기록합니다. 테스트 AUC처럼 직접 계산한 값은 <code>log_metric</code>으로 따로 남겨야 합니다.</li>
+<li>자동 로깅을 켠 실행 안에서도 다른 <code>log_*</code> 메서드를 함께 써도 됩니다.</li>
+</ul>
+</li>
+<li><strong>데이터셋은 데이터프레임이 아닌 배열로 기록된다</strong><ul>
+<li>XGBoost는 <code>DMatrix</code>라는 자체 배열 구조로 학습합니다. 자동 로깅은 이 배열을 기록하므로 컬럼 이름 같은 정보가 빠집니다.</li>
+</ul>
+</li>
+</ul>
+<p>한 실행에는 모델 하나를 담는 것이 원칙입니다. 목적 함수가 다른 모델은 실행을 나눠야 각각 비교할 수 있습니다.</p>
+<p><a id="s2-4"></a></p>
+<h3>2.4 정확도 대신 AUC로 비교하는 이유</h3>
+<p>책은 세 모델의 비교 지표로 정확도와 함께 <strong>AUC</strong>를 남기고 레지스트리에 올릴 모델도 테스트 AUC로 고릅니다.</p>
+<p>정확도만으로 고르기 어려운 원인은 데이터의 불균형입니다. 50K 초과가 24.9%뿐이므로 모든 사람을 <code>&lt;=50K</code>라고 찍어도 정확도가 75.1%입니다. 아무것도 배우지 않은 모델의 정확도가 이미 75.1%라서, 모델 사이의 차이가 정확도에 잘 드러나지 않습니다.</p>
+<h4>ROC 곡선과 AUC</h4>
+<p>분류 모델은 보통 클래스가 아니라 <strong>확률</strong>을 냅니다. 예를 들어 &quot;이 사람이 고소득일 확률 0.73&quot;입니다. 몇 이상을 고소득이라고 부를지는 기준값(threshold)이 정합니다. 1편 2.6절의 혼동행렬로 쓰면 다음과 같습니다.</p>
+<pre><code>TPR (진짜 양성 비율) = TP / (TP + FN)   실제 고소득 중 고소득이라고 맞힌 비율
+FPR (가짜 양성 비율) = FP / (FP + TN)   실제 저소득 중 고소득이라고 잘못 부른 비율
+
+기준값을 낮춘다 → 고소득을 더 많이 잡는다(TPR↑), 저소득도 더 많이 잘못 부른다(FPR↑)
+기준값을 높인다 → 반대
+</code></pre>
+<p>기준값을 1에서 0까지 내리며 (FPR, TPR) 점을 찍어 이은 선이 <strong>ROC 곡선</strong>이고 그 아래 넓이가 <strong>AUC</strong>(Area Under the Curve)입니다. 곡선이 왼쪽 위 모서리에 붙을수록 넓이가 1에 가까워집니다.</p>
+<p>AUC에는 더 쓰기 쉬운 해석이 있습니다. <strong>고소득자 한 명과 저소득자 한 명을 무작위로 뽑았을 때, 모델이 고소득자에게 더 높은 점수를 줄 확률</strong>입니다. AUC가 0.8이면 이런 쌍의 약 80%에서 순서를 맞게 매긴다는 뜻입니다. 1.0은 완벽한 구분이고 0.5는 동전 던지기 수준입니다.</p>
+<p>정답이 <code>[0, 0, 1, 1]</code>이고 모델 점수가 <code>[0.1, 0.4, 0.35, 0.8]</code>이라고 해봅시다. 양성 2개와 음성 2개로 만들 수 있는 쌍은 2 × 2 = 4개입니다.</p>
+<table>
+<thead>
+<tr>
+<th>양성 점수</th>
+<th>음성 점수</th>
+<th>양성이 더 높은가</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0.35</td>
+<td>0.1</td>
+<td>예</td>
+</tr>
+<tr>
+<td>0.35</td>
+<td>0.4</td>
+<td>아니요</td>
+</tr>
+<tr>
+<td>0.8</td>
+<td>0.1</td>
+<td>예</td>
+</tr>
+<tr>
+<td>0.8</td>
+<td>0.4</td>
+<td>예</td>
+</tr>
+</tbody></table>
+<p>네 쌍 중 세 쌍이 맞으므로 <code>roc_auc_score</code>는 3 ÷ 4 = 0.75를 돌려줍니다. 기준값을 하나도 정하지 않았는데 값이 나옵니다. <strong>AUC는 기준값이 아니라 점수의 순서를 평가합니다.</strong> 그래서 불균형 데이터에서는 AUC가 정확도보다 믿을 만한 지표입니다.</p>
+<h4>hinge 모델의 AUC가 낮게 나오는 이유</h4>
+<p>XGBoost를 <code>binary:hinge</code>로 학습하면 확률이 아니라 0 또는 1을 바로 냅니다. 점수가 두 값뿐이므로 기준값을 어디에 두어도 결과가 한 가지입니다. ROC 곡선은 점 하나를 지나는 꺾은선이 되고 넓이가 작아집니다. 이때 AUC가 낮게 나와도 모델이 약하다는 뜻이 아닐 수 있습니다. <strong>지표에 0/1 출력을 넣었기 때문</strong>일 수 있습니다. AUC로 비교할 모델은 확률을 내도록 학습해야 합니다. 4.2절의 추론 컴포넌트도 <code>predict_proba</code>로 확률을 받습니다.</p>
+<p>AUC가 높다고 해서 어떤 기준값에서든 정확도가 좋다는 뜻은 아닙니다. 운영에서는 AUC로 모델을 고른 뒤, 1편 2.6절처럼 <strong>어떤 오류의 피해가 더 큰가</strong>를 따져 기준값을 따로 정합니다.</p>
+<p><a id="s2-5"></a></p>
+<h3>2.5 모델 레지스트리 - 쿼리로 고르고 이름으로 등록</h3>
+<p>모든 실행의 지표를 남겨 두었으므로 최고 모델은 검색 한 번으로 고릅니다. 저자는 MLflow 모델 레지스트리를 <strong>모델의 생애주기를 관리하는 저장소</strong>로 정의합니다. 1편 4.2절에서 &quot;승격과 롤백은 운영 표시를 옮기는 일&quot;이라고 했는데 MLflow에서 그 운영 표시는 아래에서 볼 단계(stage)입니다.</p>
+<p>레지스트리에 모델을 올리는 방법은 두 가지입니다.</p>
+<ul>
+<li><strong>MLflow UI</strong> - 실행 목록의 검색창에 <code>metrics.roc_auc_score_test &gt; 0.8</code>을 넣으면 테스트 AUC가 0.8을 넘는 실행만 남습니다. 차트 보기로 바꾸면 실행별 지표를 막대로 비교할 수 있습니다. 책의 화면에서는 랜덤 포레스트가 1등입니다.</li>
+<li><strong>MLflow 클라이언트</strong> - 같은 필터를 코드로 실행하고 결과를 바로 레지스트리에 등록합니다.</li>
+</ul>
+<pre><code class="language-python">mlflow_client = MlflowClient()
+experiment = mlflow_client.get_experiment_by_name(&quot;income-classifier&quot;)
+
+run_object = mlflow_client.search_runs(
+    experiment_ids=experiment.experiment_id,
+    filter_string=&quot;metrics.roc_auc_score_test &gt; 0.8&quot;,
+    max_results=1,
+    order_by=[&quot;metrics.roc_auc_score_test DESC&quot;],
+)[0]
+
+model_uri = f&quot;runs:/{run_object.info.run_id}/income-classifier&quot;
+mlflow.register_model(model_uri, &quot;random-forest-classifier&quot;)
+</code></pre>
+<p>코드가 하는 일은 네 단계입니다.</p>
+<ol>
+<li>실험 이름으로 실험 ID를 찾습니다.</li>
+<li>조건(<code>&gt; 0.8</code>)으로 거르고 테스트 AUC 내림차순으로 정렬해 1개만 받습니다.</li>
+<li>그 실행의 ID와 <code>log_model</code> 때 쓴 경로로 <strong>모델 URI</strong>를 만듭니다. <code>runs:/&lt;실행 ID&gt;/&lt;저장 경로&gt;</code> 형식입니다.</li>
+<li>모델 URI와 등록 이름으로 레지스트리에 올립니다. 첫 등록은 버전 1이고 같은 이름으로 다시 등록하면 버전 2, 3이 쌓입니다.</li>
+</ol>
+<p>등록된 모델은 <strong>단계</strong>(stage)를 가집니다. 코드를 스테이징에서 테스트한 뒤 운영으로 옮기듯, 모델도 Staging과 Production 단계로 승격합니다. 소비하는 쪽은 실행 ID를 몰라도 됩니다. <code>models:/random-forest-classifier/Production</code>처럼 이름과 단계로 모델을 불러옵니다. 그래서 새 버전을 Production으로 올리면 소비자는 코드를 고치지 않고도 다음 실행부터 새 모델을 씁니다. 4.2절의 추론 컴포넌트가 이 방식을 씁니다.</p>
+<p>2.1절의 첫 질문 &quot;지금 운영에 배포된 모델 버전은 무엇인가&quot;의 답이 여기서 나옵니다. Production 단계가 붙은 버전이 그 답입니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>3부. Feast - 피처 스토어</h2>
+<p><a id="s3-1"></a></p>
+<h3>3.1 흩어진 피처와 조인 로직 - 세 범주로 나눈 파일</h3>
+<p>소득 분류기의 피처는 파일 하나에 모두 들어 있습니다. 현실에서는 피처가 여러 테이블과 파일에 흩어져 있고 학습 데이터셋을 만들려면 복잡한 피처 처리와 조인 로직을 짜야 합니다. 책은 이 상황을 흉내 내려고 파일 하나를 세 개로 나눕니다.</p>
+<figure>
+  <img src="02-feature-split.webp" alt="Demographic features, Relationship features, Occupation features 세 표가 나란히 있고 각 표에 Sex·Race·Native Country, Marital Status·Relationship, Workclass·Education·Occupation 열과 예시 값 세 줄이 있는 그림">
+  <figcaption>한 파일의 8개 컬럼이 성격에 따라 세 묶음으로 갈라졌습니다. 각 파일에는 이 피처 외에 <strong>사용자 ID와 타임스탬프</strong>가 붙습니다. 이 두 열이 있어야 흩어진 파일을 "누구의, 언제의 값"으로 다시 맞출 수 있고 3.2절의 시점 정합 조회가 이 두 열을 씁니다. (출처: Benjamin Tan Wei Hao 외, <em>Machine Learning Platform Engineering</em>, Manning, Figure 4.9)</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr>
+<th>범주</th>
+<th>피처</th>
+<th>FeatureView 이름</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>인구통계(demographic)</td>
+<td>Sex, Race, Native_country</td>
+<td><code>demographic</code></td>
+</tr>
+<tr>
+<td>관계(relationship)</td>
+<td>Marital-Status, Relationship</td>
+<td><code>relationship</code></td>
+</tr>
+<tr>
+<td>직업(occupation)</td>
+<td>Workclass, Education, Occupation</td>
+<td><code>occupation</code></td>
+</tr>
+</tbody></table>
+<p>이 묶음이 3.4절의 FeatureView 세 개가 됩니다. 1편 4.2절이 말한 피처 공유도 이 묶음 단위로 합니다. 다른 팀은 <code>occupation</code> 묶음만 가져다 쓸 수 있습니다.</p>
+<p><a id="s3-2"></a></p>
+<h3>3.2 시점 정합 조회 - 5월 22일에는 5월 21일 값</h3>
+<p>1편 4.2절은 시점 기준 조회가 미래 정보 누수를 막는다고 짚었습니다. 책은 이 규칙을 피처 파일 기준으로 설명합니다. 피처 파일을 정의한 다음에는 추론이나 재학습 시점에 <strong>적합한 피처</strong>를 가져올 방법이 필요합니다. 책은 적합한 피처를 예로 정의합니다. 5월 22일 기준으로 어떤 사용자의 피처를 가져온다고 해봅시다. 이 사용자의 피처는 세 시점에 기록되어 있습니다.</p>
+<table>
+<thead>
+<tr>
+<th>기록 시점</th>
+<th>5월 22일 기준으로 쓸 수 있는가</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1월 7일</td>
+<td>쓸 수 있지만 오래된 값</td>
+</tr>
+<tr>
+<td>5월 21일</td>
+<td><strong>조회 시점 이전 중 가장 최근 값 - 이것을 쓴다</strong></td>
+</tr>
+<tr>
+<td>12월 4일</td>
+<td>쓸 수 없다. 5월 22일에는 아직 일어나지 않은 미래 값</td>
+</tr>
+</tbody></table>
+<p>12월 4일 값을 학습에 쓰면 모델은 예측 시점에 알 수 없는 정보로 학습합니다. 1편 2.3절 누수 표의 <strong>미래 정보</strong> 줄에 해당합니다. 반대로 1월 7일 값을 쓰면 5월 21일에 바뀐 사실이 빠집니다.</p>
+<p>이 규칙을 <strong>시점 정합(point-in-time) 조회</strong>라고 합니다. 조회하는 시점에 맞춰 그 이전 값 중 가장 최근 값을 고르는 것입니다. 스크립트나 SQL로 직접 짤 수도 있지만 그러면 유지보수하고 디버깅할 코드가 하나 더 늘어납니다. Feast는 이 로직을 추상화 계층으로 제공합니다. 저자는 그 덕분에 데이터 과학자가 조인 로직이 아니라 피처 엔지니어링에 집중할 수 있다고 씁니다.</p>
+<aside class="callout">
+<p class="eyebrow">(용어) TTL (time to live)</p>
+
+<p>Feast가 과거 데이터셋을 만들 때 <strong>조회 시점에서 얼마나 이전 값까지 참조할지</strong> 정하는 한도입니다. 5월 22일 기준 데이터셋을 만들고 TTL이 이틀이면 Feast는 5월 20일 이전에 기록된 값을 고려하지 않습니다. 너무 오래된 값이 최신 값처럼 쓰이는 것을 막는 장치입니다. 책은 TTL이 너무 짧아 피처가 빠지는 일을 피하려고 365일로 잡습니다.</p>
+</aside>
+
+<p>TTL까지 넣으면 시점 정합 조회의 규칙은 한 줄로 정리됩니다.</p>
+<pre><code>조회 시점 T, TTL d 일 때:
+    [T − d, T] 구간에 기록된 값 중 가장 최근 값
+    구간에 값이 없으면 → 빈 값(null)
+</code></pre>
+<p><a id="s3-3"></a></p>
+<h3>3.3 오프라인 스토어와 온라인 스토어 - 구체화</h3>
+<p>1편 4.2절은 오프라인 스토어와 온라인 스토어의 목적, 데이터 양, 응답 속도를 비교했습니다. 책의 Feast 설계도에서는 두 저장소가 이렇게 이어집니다.</p>
+<figure>
+  <img src="03-feast-design.webp" alt="왼쪽의 Feature generation pipeline이 Offline store를 채우고 Offline store에서 Online store로 아래 화살표가 이어지며 각각 get_historical_features와 get_online_features로 Training data와 Real-time inference data를 만들어 Model과 Predictions로 가는 그림. 가운데 Feature registry 상자에 Online store info, Offline store info, Feature info, Materialization info가 적혀 있다">
+  <figcaption>피처 생성 파이프라인은 <strong>오프라인 스토어에만</strong> 피처를 씁니다. 온라인 스토어는 가운데 세로 화살표로 오프라인 스토어에서 주기적으로 값을 받습니다. 그래서 학습 데이터와 실시간 추론 데이터가 같은 원본에서 나옵니다. 가운데 피처 레지스트리는 두 저장소의 위치, 피처 정의, 마지막 구체화 정보를 보관하고 점선은 양쪽 조회가 모두 이 정의를 거친다는 뜻입니다. (출처: Benjamin Tan Wei Hao 외, <em>Machine Learning Platform Engineering</em>, Manning, Figure 4.10)</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>오프라인 스토어</th>
+<th>온라인 스토어</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>책의 선택</td>
+<td>객체 스토리지(MinIO)의 parquet 파일</td>
+<td>Redis</td>
+</tr>
+<tr>
+<td>채우는 쪽</td>
+<td>피처 생성 파이프라인</td>
+<td>구체화(materialize)</td>
+</tr>
+<tr>
+<td>조회 메서드</td>
+<td><code>get_historical_features</code></td>
+<td><code>get_online_features</code></td>
+</tr>
+</tbody></table>
+<p>Redis가 일반적인 선택이지만 Feast는 요구사항에 따라 DynamoDB, Google Cloud Datastore 같은 다른 온라인 데이터베이스도 지원합니다.</p>
+<p>1편 4.2절의 주기적 복사(<em>materialize</em>)를 이 글에서는 구체화라고 부릅니다. Feast에서는 <code>feast materialize &lt;시작 시각&gt; &lt;종료 시각&gt;</code> 명령 하나로 실행합니다. Feast는 오프라인 스토어에서 두 시각 사이의 데이터를 읽어 엔티티마다 가장 최근 값을 온라인 스토어에 씁니다.</p>
+<p>1편 4.2절은 피처 스토어가 <strong>피처 정의 하나</strong>로 학습-서빙 불일치를 막는다고 했습니다. Feast에서는 레지스트리가 그 정의를 보관하고 데이터 원본도 오프라인 스토어 하나입니다. 온라인 스토어는 원본의 사본일 뿐입니다.</p>
+<p>사본이므로 주의할 점이 두 가지 생깁니다.</p>
+<ul>
+<li><strong>구체화하지 않으면 온라인 조회가 빈 값을 돌려준다</strong><ul>
+<li>엔티티가 오프라인 스토어에 있어도 온라인 스토어가 비어 있으면 값은 None입니다.</li>
+</ul>
+</li>
+<li><strong>온라인 값은 &quot;마지막 구체화 시점의 최신 값&quot;이다</strong><ul>
+<li>피처 파일이 갱신되어도 다시 구체화하기 전까지 온라인 스토어에는 반영되지 않습니다. 그래서 구체화는 한 번이 아니라 주기적으로 돌리는 작업입니다.</li>
+</ul>
+</li>
+</ul>
+<p><a id="s3-4"></a></p>
+<h3>3.4 Entity·DataSource·FeatureView와 피처 레지스트리</h3>
+<p>Feast에 피처를 등록하려면 정의 세 가지와 설정 파일 하나를 씁니다.</p>
+<aside class="callout">
+<p class="eyebrow">(용어) 엔티티 (entity)</p>
+
+<p>피처를 모으는 대상을 식별하는 키입니다. 소득 분류기는 사용자에 대한 피처를 모으므로 <code>user_id</code>가 엔티티입니다. 상품에 대한 피처라면 <code>product_id</code>가 엔티티가 됩니다. 3.1절 파일마다 붙은 사용자 ID 열이 이 엔티티 값입니다.</p>
+</aside>
+
+<pre><code class="language-python"># 1. 엔티티 - 이름, 설명, 타입
+user = Entity(name=&quot;user_id&quot;, description=&quot;A user&quot;)
+
+# 2. 데이터 소스 - 피처 파일의 형식과 위치
+demo_features_parquet_file_source = FileSource(
+    file_format=ParquetFormat(),
+    path=&quot;s3://feature-data-sets/demographic_features.parquet&quot;,
+    s3_endpoint_override=&quot;http://localhost:9000&quot;,
+)
+
+# 3. FeatureView - 피처의 논리적 묶음
+demo_features = FeatureView(
+    name=&quot;demographic&quot;,
+    entities=[user],
+    schema=[
+        Field(name=&quot;Native_country&quot;, dtype=String),
+        Field(name=&quot;Sex&quot;, dtype=String),
+        Field(name=&quot;Race&quot;, dtype=String),
+    ],
+    ttl=timedelta(days=365),
+    source=demo_features_parquet_file_source,
+    tags={&quot;description&quot;: &quot;User Demographics&quot;,
+          &quot;used_by&quot;: &quot;Income_Calculation_Team&quot;},
+)
+</code></pre>
+<ul>
+<li><strong>DataSource는 위치만 가리킨다</strong><ul>
+<li>피처 값을 복사하지 않습니다. parquet 파일의 경로와 객체 스토리지 엔드포인트만 기록합니다.</li>
+</ul>
+</li>
+<li><strong>FeatureView가 이름과 시간 규칙을 붙인다</strong><ul>
+<li>어떤 엔티티의 피처인지, 컬럼 목록과 타입, TTL을 정합니다. 3.2절의 시점 정합 조회는 이 TTL을 씁니다.</li>
+<li>태그는 선택 사항입니다. 작성자, 설명, 사용 팀을 적어 두면 다른 팀이 피처를 찾을 때 근거가 됩니다.</li>
+</ul>
+</li>
+</ul>
+<p>남은 하나는 피처 스토어 설정 파일 <code>feature_store.yaml</code>입니다.</p>
+<pre><code class="language-yaml">project: my_feature_repo
+registry: s3://feature-registry/registry_local.db   # 피처 레지스트리 위치
+provider: local                                      # 클라우드 공급자 또는 로컬
+offline_store:
+  type: file                                         # 객체 스토리지의 파일
+online_store:
+  type: redis
+  connection_string: &quot;localhost:6379&quot;
+</code></pre>
+<p><strong>피처 레지스트리는 모든 피처와 엔티티 정의를 보관하는 공통 저장소</strong>입니다. 책에서는 객체 스토리지 버킷에 있는 <code>registry_local.db</code> 파일 하나가 그 역할을 합니다. 정의를 코드로 쓴 다음에는 <code>feast apply</code>로 레지스트리에 반영합니다.</p>
+<pre><code>feast apply
+Created entity user_id
+Created feature view relationship
+Created feature view occupation
+Created feature view demographic
+Deploying infrastructure for relationship
+Deploying infrastructure for occupation
+Deploying infrastructure for demographic
+</code></pre>
+<p>출력의 <code>Deploying infrastructure</code> 줄에서 Feast는 Redis를 세 FeatureView의 온라인 저장소로 설정합니다. 이 시점에는 정의만 올라갔고 값은 아직 온라인 스토어에 없습니다. 값은 3.3절의 구체화가 채웁니다.</p>
+<p><a id="s3-5"></a></p>
+<h3>3.5 조회 인터페이스 - SDK 메서드 두 개와 피처 서버</h3>
+<p>피처는 <code>&quot;&lt;FeatureView 이름&gt;:&lt;피처 이름&gt;&quot;</code> 형식으로 가리킵니다. 인구통계 묶음의 성별은 <code>&quot;demographic:Sex&quot;</code>입니다.</p>
+<h4>오프라인 조회 - get_historical_features</h4>
+<p>인자는 두 개입니다. 첫째는 <strong>엔티티 데이터프레임</strong>입니다. 열 이름은 엔티티 이름(<code>user_id</code>)과 <code>event_timestamp</code>여야 합니다. 둘째는 가져올 피처 목록입니다.</p>
+<pre><code class="language-python">entity_df = pd.DataFrame.from_dict({
+    &quot;user_id&quot;: [&quot;9f2ac416-06e1-44a0-87bd-d4787c85bf66&quot;],
+    &quot;event_timestamp&quot;: [datetime(2023, 1, 30, 10, 59, 42)],
+})
+store = FeatureStore(repo_path=&quot;.&quot;)
+training_df = store.get_historical_features(
+    entity_df=entity_df,
+    features=[&quot;demographic:Sex&quot;],
+).to_df()
+</code></pre>
+<p>엔티티 데이터프레임의 각 행이 &quot;이 사용자의, 이 시점의 값을 달라&quot;는 요청입니다. Feast는 행마다 3.2절의 규칙으로 값을 골라 붙입니다. 결과는 <code>user_id</code>, <code>event_timestamp</code>, <code>Sex</code> 세 열입니다. 학습 데이터셋을 만들 때는 이 데이터프레임에 사용자 수만큼 행을 넣습니다.</p>
+<h4>온라인 조회 - get_online_features</h4>
+<pre><code class="language-python">online_features = store.get_online_features(
+    features=[&quot;demographic:Sex&quot;],
+    entity_rows=[{&quot;user_id&quot;: &quot;9f2ac416-06e1-44a0-87bd-d4787c85bf66&quot;}],
+)
+</code></pre>
+<p>입력에 시각이 없습니다. 온라인 스토어에는 엔티티마다 최신 값 하나만 있기 때문입니다.</p>
+<table>
+<thead>
+<tr>
+<th>비교</th>
+<th><code>get_historical_features</code></th>
+<th><code>get_online_features</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>시점</td>
+<td>요청한 <code>event_timestamp</code> 이전의 가장 최근 값</td>
+<td>마지막 구체화로 올라간 현재 값</td>
+</tr>
+<tr>
+<td>입력</td>
+<td>엔티티 데이터프레임(<code>user_id</code> + <code>event_timestamp</code>)</td>
+<td>딕셔너리 목록(<code>user_id</code>만)</td>
+</tr>
+<tr>
+<td>출력</td>
+<td><code>event_timestamp</code> 열 포함</td>
+<td><code>event_timestamp</code> 열 없음</td>
+</tr>
+<tr>
+<td>데이터 출처</td>
+<td>오프라인 스토어</td>
+<td>온라인 스토어</td>
+</tr>
+<tr>
+<td>용도</td>
+<td>학습, 배치 추론</td>
+<td>실시간 추론</td>
+</tr>
+</tbody></table>
+<h4>피처 서버 - feast serve</h4>
+<p>Feast SDK는 파이썬 패키지입니다. 피처를 쓰려는 애플리케이션이 다른 언어로 작성되어 있으면 SDK를 쓸 수 없습니다. 그래서 Feast는 <strong>피처 서버</strong>도 제공합니다. <code>feast serve</code>를 실행하면 HTTP 서버가 뜨고 <code>POST /get-online-features</code> 요청 하나로 온라인 조회를 할 수 있습니다.</p>
+<pre><code class="language-bash">curl -X POST &quot;http://localhost:6566/get-online-features&quot; -d &#39;{
+  &quot;features&quot;: [&quot;demographic:Sex&quot;],
+  &quot;entities&quot;: {&quot;user_id&quot;: [&quot;9f2ac416-06e1-44a0-87bd-d4787c85bf66&quot;]}
+}&#39;
+</code></pre>
+<p>피처 서버는 피처 이름 목록, 값, 상태(<code>PRESENT</code> 등), 값이 기록된 시각을 함께 돌려줍니다. 엔티티 목록에 사용자 여러 명을 넣으면 한 번에 조회합니다. <code>feast ui</code>는 레지스트리에 등록된 FeatureView, 엔티티, 데이터 소스를 목록으로 보여 주고 태그로 FeatureView를 거를 수 있습니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>4부. Kubeflow Pipelines - 배치 추론 오케스트레이션</h2>
+<p><a id="s4-1"></a></p>
+<h3>4.1 배치 추론 파이프라인의 공통 구조 - 4단계</h3>
+<p>4장까지의 결과물은 레지스트리에 등록된 모델과 Feast에 등록된 피처입니다. 5장은 이 둘로 배치 추론을 자동화합니다. 책에 따르면 추론 파이프라인은 대부분 구조가 같습니다.</p>
+<pre><code>어딘가에서 데이터를 가져온다   (객체 스토어, 데이터 웨어하우스, 파일시스템)
+        ↓
+전처리하고 피처를 붙인다
+        ↓
+모델을 조회하거나 로드해 추론한다
+        ↓
+결과를 데이터베이스나 클라우드 스토리지에 쓴다
+
++ 주기적으로 실행한다
++ 날짜·시간, 피처 테이블 이름 같은 값을 실행할 때마다 파라미터로 받는다
+</code></pre>
+<p>소득 분류기에 대입하면 네 단계가 됩니다.</p>
+<ol>
+<li>객체 스토리지에서 사용자 ID 목록을 읽습니다.</li>
+<li>그 사용자들의 피처를 Feast에서 조회합니다.</li>
+<li>MLflow 레지스트리에서 모델을 불러와 추론합니다.</li>
+<li>결과를 객체 스토리지에 다시 씁니다.</li>
+</ol>
+<figure>
+  <img src="04-kfp-interactions.webp" alt="왼쪽에 Read data from MinIO, Retrieve features from Feast, Retrieve model from MLflow, Write data to MinIO 네 상자가 위에서 아래로 이어지고 오른쪽 세로 막대 MinIO와 각 상자가 Write entity df to OutputPath, Read feature df from last step 같은 화살표로 연결되며 가운데에 Feast와 MLflow 상자가 각각 두 번째와 세 번째 단계에 연결된 그림">
+  <figcaption>왼쪽 상자 사이의 세로 화살표는 실행 순서만 나타냅니다. 단계 사이에 넘기는 데이터는 모두 오른쪽 객체 스토리지의 <strong>OutputPath</strong>를 거칩니다. 각 단계가 결과를 거기 쓰고 다음 단계가 그 경로에서 읽습니다(<code>from last step</code>). 외부 시스템은 필요한 단계에만 붙습니다. Feast는 두 번째 단계에, MLflow는 세 번째 단계에만 연결됩니다. 그래서 단계를 하나씩 떼어 다른 파이프라인에 다시 쓸 수 있습니다. (출처: Benjamin Tan Wei Hao 외, <em>Machine Learning Platform Engineering</em>, Manning, Figure 5.2)</figcaption>
+</figure>
+
+<p>KFP가 풀어야 할 문제는 워크플로의 반복 가능성, 서로 다른 모델 사이의 단계 표준화, 단계 사이의 안정적인 데이터 흐름입니다. KFP의 답은 작업 단계를 같은 형식으로 묶는 <strong>컴포넌트</strong>입니다.</p>
+<p><a id="s4-2"></a></p>
+<h3>4.2 컴포넌트 = 코드 + 이미지 + 명세</h3>
+<p>1편 4.2절은 &quot;Kubeflow Pipelines에서 각 단계는 컴포넌트이고 파이프라인 정의가 실행 순서와 입출력을 고정한다&quot;고 정리했습니다. 5장은 그 컴포넌트가 무엇으로 이루어지는지 보여 줍니다.</p>
+<p><strong>컴포넌트 하나는 쿠버네티스 Pod 하나에서 실행됩니다.</strong> Pod는 컨테이너 이미지로 뜨므로 컴포넌트를 만들려면 코드가 든 이미지가 필요합니다. 그래서 컴포넌트 하나를 만드는 작업은 세 단계입니다.</p>
+<pre><code>1. 파이썬 파일     src/read_data/read_data.py        할 일 + argparse로 인자 받기
+2. 컨테이너 이미지  Dockerfile → docker build/push    의존성과 코드를 담은 실행 환경
+3. 컴포넌트 명세   components/read_data/component.yaml  입력·출력·실행 명령
+</code></pre>
+<p>각 컴포넌트가 격리된 환경에서 실행되므로 한 단계의 의존성이 다른 단계와 충돌하지 않습니다.</p>
+<h4>component.yaml의 구조</h4>
+<p>데이터 읽기 컴포넌트의 명세입니다. 쿠버네티스 객체를 YAML로 정의하는 방식과 비슷합니다.</p>
+<pre><code class="language-yaml">name: Read Data From MinIO
+description: Fetches data from MinIO and outputs as a Dataset.
+inputs:
+- {name: minio_host,  type: String}
+- {name: access_key,  type: String}
+- {name: secret_key,  type: String}
+- {name: bucket_name, type: String}
+- {name: file_name,   type: String}
+outputs:
+- {name: data_output, type: Dataset}
+implementation:
+  container:
+    image: &#39;varunmallya/read-minio-data:latest&#39;
+    command:
+    - python3
+    - /app/src/read_data/read_data.py
+    - --minio_host
+    - {inputValue: minio_host}
+    # ... access_key, secret_key, bucket_name, file_name 같은 방식
+    - --data_output_path
+    - {outputPath: data_output}
+</code></pre>
+<p><code>inputs</code>와 <code>outputs</code>는 이 컴포넌트가 받는 값과 내는 데이터를 정의합니다. KFP는 <code>command</code>의 중괄호 자리표시자를 실제 명령줄 인자로 바꿉니다. 자리표시자는 세 가지입니다.</p>
+<table>
+<thead>
+<tr>
+<th>자리표시자</th>
+<th>명령줄에 들어가는 것</th>
+<th>쓰는 곳</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>{inputValue: x}</code></td>
+<td>값 자체 (문자열)</td>
+<td>호스트 주소, 버킷 이름, 피처 목록</td>
+</tr>
+<tr>
+<td><code>{inputPath: x}</code></td>
+<td>앞 단계가 쓴 데이터의 <strong>파일 경로</strong></td>
+<td>피처 조회의 <code>entity_df</code>, 추론의 <code>input_data</code></td>
+</tr>
+<tr>
+<td><code>{outputPath: x}</code></td>
+<td>이 단계가 데이터를 <strong>쓸 파일 경로</strong></td>
+<td>각 단계의 <code>data_output</code></td>
+</tr>
+</tbody></table>
+<p><code>outputs</code>의 <code>data_output</code>은 <code>Dataset</code> 타입입니다. 이 선언으로 KFP는 <code>data_output</code>이 컴포넌트의 출력을 담는다는 것을 압니다. 파이썬 코드는 KFP가 넘겨준 경로에 파일을 쓰기만 하면 됩니다.</p>
+<pre><code class="language-python">Path(data_output_path).parent.mkdir(parents=True, exist_ok=True)
+df.to_parquet(data_output_path)
+</code></pre>
+<p>컴포넌트는 출력이 객체 스토리지의 어디에 저장되는지 모릅니다. KFP가 경로를 정해 주고 다음 단계에는 같은 경로를 <code>inputPath</code>로 넘깁니다. 4.1절 그림의 <code>OutputPath</code> 화살표가 이 동작입니다.</p>
+<h4>나머지 세 컴포넌트</h4>
+<table>
+<thead>
+<tr>
+<th>컴포넌트</th>
+<th>입력</th>
+<th>하는 일</th>
+<th>출력</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>피처 조회</td>
+<td><code>entity_df</code>(Dataset), <code>feature_list</code></td>
+<td>객체 스토리지에서 <code>feature_store.yaml</code>을 받아 피처 스토어를 초기화하고 <code>get_historical_features</code> 호출</td>
+<td>피처가 붙은 데이터프레임</td>
+</tr>
+<tr>
+<td>추론</td>
+<td><code>input_data</code>(Dataset), 모델 이름·종류·단계, <code>mlflow_host</code></td>
+<td>레지스트리에서 모델과 <code>column_list.pkl</code>을 받아 원-핫 인코딩 후 <code>predict_proba</code></td>
+<td><code>Predicted_Income_Class</code> 열이 붙은 데이터프레임</td>
+</tr>
+<tr>
+<td>데이터 쓰기</td>
+<td><code>input_data</code></td>
+<td>결과를 parquet으로 객체 스토리지에 저장</td>
+<td>없음</td>
+</tr>
+</tbody></table>
+<p>추론 컴포넌트는 2부에서 MLflow에 남긴 것을 세 가지 방식으로 씁니다.</p>
+<ul>
+<li><strong>레지스트리의 단계로 모델을 찾는다</strong><ul>
+<li><code>search_model_versions</code>로 등록 이름의 버전들을 훑고 <code>current_stage</code>가 파라미터로 받은 단계(예: Production)와 같은 버전을 고릅니다. 없으면 <code>No model found in stage ...</code> 오류로 멈춥니다.</li>
+</ul>
+</li>
+<li><strong>학습 때의 컬럼 순서에 다시 맞춘다</strong><ul>
+<li>같은 실행에서 <code>column_list.pkl</code>을 받아 <code>get_dummies</code> 결과를 <code>reindex</code>합니다. 추론 데이터에 없는 범주 컬럼은 0으로 채웁니다. 1.2절에서 컬럼 순서를 모델과 함께 저장한 것도 이 단계 때문입니다.</li>
+</ul>
+</li>
+<li><strong>모델 종류마다 로더를 고른다</strong><ul>
+<li><code>model_type</code>이 sklearn, xgboost, tensorflow 중 무엇인지에 따라 <code>mlflow.&lt;프레임워크&gt;.load_model</code>을 고르고 <code>models:/&lt;이름&gt;/&lt;단계&gt;</code> URI로 로드합니다.</li>
+</ul>
+</li>
+</ul>
+<p>피처 조회 컴포넌트에는 주소 문제가 하나 있습니다. 4장에서 로컬에서 <code>feast apply</code>를 실행할 때 데이터 소스의 엔드포인트는 <code>localhost</code>였습니다. 그런데 Pod 안의 <code>localhost</code>는 Pod 자신입니다. 그래서 5장은 엔드포인트를 클러스터 내부 서비스 주소로 바꾼 정의를 쿠버네티스 Job으로 클러스터 안에서 <code>feast apply</code>합니다. 레지스트리에 적힌 주소가 <strong>그 레지스트리를 읽는 쪽에서 닿는 주소</strong>여야 한다는 뜻입니다.</p>
+<p><a id="s4-3"></a></p>
+<h3>4.3 파이프라인 = DAG - 출력 참조가 의존성이 된다</h3>
+<aside class="callout">
+<p class="eyebrow">(용어) DAG (directed acyclic graph, 방향성 비순환 그래프)</p>
+
+<p>간선에 방향이 있고 순환이 없는 그래프입니다. 노드가 작업이고 간선이 &quot;이 작업이 끝나야 저 작업을 시작한다&quot;는 의존 관계입니다. 순환이 없으므로 실행 순서가 항상 정해집니다.</p>
+</aside>
+
+<p>KFP 파이프라인은 전체 ML 워크플로를 기술하고 컴포넌트를 DAG로 엮습니다. 파이프라인도 파이썬 파일로 정의합니다.</p>
+<h4>1. 컴포넌트 불러오기</h4>
+<pre><code class="language-python">fetch_data_op = kfp.components.load_component_from_file(
+    &quot;components/read_data/component.yaml&quot;)
+retrieve_features_op = kfp.components.load_component_from_file(
+    &quot;components/retrieve_features/component.yaml&quot;)
+# run_inference_op, write_data_op 같은 방식
+</code></pre>
+<p><code>load_component_from_file</code>은 4.2절의 명세 파일 경로를 받아 컴포넌트 객체를 만듭니다.</p>
+<h4>2. 파이프라인 함수와 파라미터</h4>
+<pre><code class="language-python">@dsl.pipeline(name=&quot;income-classifier-pipeline&quot;,
+              description=&quot;A Kubeflow pipeline to classify income categories using KFP v2&quot;)
+def income_classifier_pipeline(
+    minio_host: str, access_key: str, secret_key: str,
+    entity_df_bucket: str, entity_df_filename: str,
+    feature_store_bucket_name: str, feature_store_config_file_name: str,
+    feature_list: str,
+    model_name: str, model_type: str, model_stage: str, mlflow_host: str,
+    output_bucket: str, output_file_name: str,
+):
+</code></pre>
+<p><code>@dsl.pipeline</code> 애노테이션이 이 함수를 파이프라인 정의로 표시합니다. 함수의 인자 14개는 <strong>파이프라인 파라미터</strong>입니다. 실행할 때마다 값을 바꿀 수 있고 기본값을 지정할 수도 있습니다. 4.1절의 &quot;날짜·시간, 피처 테이블 이름을 파라미터로 받는다&quot;가 이 인자들입니다. 같은 파이프라인으로 모델 이름만 바꿔 다른 모델을 돌리거나, 출력 버킷만 바꿔 다른 환경에 쓸 수 있습니다.</p>
+<h4>3. 태스크 연결</h4>
+<pre><code class="language-python">fetch_data_task = fetch_data_op(
+    minio_host=minio_host, bucket_name=entity_df_bucket, ...)
+retrieve_features_task = retrieve_features_op(
+    entity_df=fetch_data_task.outputs[&quot;data_output&quot;], ...)
+run_inference_task = run_inference_op(
+    input_data=retrieve_features_task.outputs[&quot;data_output&quot;], ...)
+write_data_task = write_data_op(
+    input_data=run_inference_task.outputs[&quot;data_output&quot;], ...)
+</code></pre>
+<p>컴포넌트에 인자를 채우면 <strong>태스크</strong>가 됩니다. 태스크를 잇는 별도 API는 없습니다. 앞 태스크의 <code>outputs[&quot;data_output&quot;]</code>을 다음 태스크의 입력으로 넘기면 KFP는 다음 태스크가 앞 태스크의 완료에 의존한다고 인식합니다. 출력 참조 하나가 데이터 전달과 실행 순서를 동시에 정합니다.</p>
+<pre><code>fetch_data_task ──data_output──▶ retrieve_features_task ──data_output──▶ run_inference_task ──data_output──▶ write_data_task
+   (entity_df)                     (entity_df → 피처)                     (피처 → 예측)                      (예측 → parquet)
+</code></pre>
+<h4>4. 컴파일과 실행</h4>
+<pre><code class="language-python">Compiler().compile(income_classifier_pipeline, &quot;income_classifier_pipeline.yaml&quot;)
+</code></pre>
+<p>컴파일러가 파이프라인 함수를 YAML 파일 하나로 바꿉니다. 이 파일을 KFP UI에 올리면 파이프라인이 등록됩니다. 실행은 세 단계입니다.</p>
+<ol>
+<li>파이프라인을 업로드합니다(Upload pipeline).</li>
+<li>실행을 묶을 실험을 만듭니다(Create experiment). MLflow의 실험처럼 KFP도 실험 안에 실행을 쌓습니다.</li>
+<li>실행을 만들고 파라미터 14개를 채운 뒤 시작합니다(Create run).</li>
+</ol>
+<p>실행이 끝나면 UI에 4.1절 그림과 같은 순서의 그래프가 그려지고 노드마다 성공 표시와 로그가 남습니다. 저자는 실험 안에서 여러 실행을 추적하는 기능 덕분에 팀이 구성, 하이퍼파라미터, 데이터셋을 체계적으로 바꿔 가며 실험할 수 있다고 씁니다.</p>
+<p><a id="s4-4"></a></p>
+<h3>4.4 컴포넌트 설계 원칙 네 가지와 이점 세 가지</h3>
+<p>1편 3.1절은 도구 생태계가 파편화되는 문제의 해법으로 공유 컴포넌트를 꼽았습니다. 5장은 공유할 수 있는 컴포넌트의 설계 원칙을 네 가지로 듭니다.</p>
+<table>
+<thead>
+<tr>
+<th>원칙</th>
+<th>내용</th>
+<th>소득 분류기에서</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>모듈성</td>
+<td>단일 책임 원칙 - 컴포넌트 하나는 기능 하나만 수행한다</td>
+<td>추론과 데이터 쓰기를 별도 컴포넌트로 나눴다</td>
+</tr>
+<tr>
+<td>입출력 명시</td>
+<td>필요한 데이터와 생성하는 아티팩트를 상세히 정의한다</td>
+<td>모든 컴포넌트가 <code>component.yaml</code>에 입력과 출력을 적는다</td>
+</tr>
+<tr>
+<td>파라미터화</td>
+<td>코드를 고치지 않고 동작을 바꿀 수 있게 한다</td>
+<td><code>mlflow_host</code>, <code>bucket_name</code>, <code>minio_host</code>를 하드코딩하지 않고 파라미터로 받는다</td>
+</tr>
+<tr>
+<td>문서화</td>
+<td>기능, 입출력, 사용법을 다른 팀원이 읽을 수 있게 적는다</td>
+<td>명세의 <code>description</code>, 그림과 사용 안내</td>
+</tr>
+</tbody></table>
+<p>잘 설계된 컴포넌트는 세 가지 이점을 줍니다.</p>
+<ul>
+<li><strong>재사용성</strong> - 한 번 정의하면 여러 파이프라인에서 씁니다. 데이터 읽기와 쓰기 컴포넌트는 소득 분류기와 무관하게 어떤 parquet 파일에도 쓸 수 있습니다.</li>
+<li><strong>협업</strong> - 데이터 과학자, ML 엔지니어, 도메인 전문가가 서로 다른 컴포넌트를 맡아 병렬로 개발합니다.</li>
+<li><strong>테스트</strong> - 컴포넌트를 따로 테스트할 수 있어 디버깅이 쉬워집니다. 문제가 특정 컴포넌트로 격리되면 전체 파이프라인에서 원인을 추적하는 복잡도가 줄어듭니다.</li>
+</ul>
+<p>4.1절 그림에서 단계 사이에 데이터 화살표가 없던 이유가 이 원칙들입니다. 단계가 서로를 모르고 객체 스토리지의 경로만 알기 때문에, 한 단계를 교체해도 나머지 단계는 바꿀 필요가 없습니다.</p>
+<p><a id="s4-5"></a></p>
+<h3>4.5 배치 추론과 실시간 추론</h3>
+<p>1편 1.1절은 간극을 묻는 질문을 중고차 예제에 대입하면서 &quot;데이터를 배치로 받는가, 실시간으로 받는가&quot;를 첫 항목으로 꼽았습니다. 이 편의 도구들은 그 질문에 따라 쓰는 경로가 갈립니다.</p>
+<table>
+<thead>
+<tr>
+<th>경로</th>
+<th>피처 조회</th>
+<th>모델 실행</th>
+<th>책의 도구</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>배치 추론</td>
+<td><code>get_historical_features</code> (오프라인 스토어)</td>
+<td>파이프라인의 추론 컴포넌트</td>
+<td>KFP</td>
+</tr>
+<tr>
+<td>실시간 추론</td>
+<td><code>get_online_features</code> 또는 피처 서버 (온라인 스토어)</td>
+<td>항상 실행 중인 모델 API</td>
+<td>BentoML (6장)</td>
+</tr>
+</tbody></table>
+<p>KFP는 정해진 시각에 한 번에 많은 사용자를 처리하는 배치 추론에 맞습니다. 요청이 올 때마다 바로 응답해야 하는 실시간 추론과 운영 배포는 다음 장의 BentoML이 맡습니다. 두 경로 모두 같은 레지스트리의 모델과 같은 피처 정의를 쓰므로 경로 사이의 불일치도 막습니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>전체 흐름 정리</h2>
+<pre><code>[1부] 플랫폼 지도의 네 칸을 실제 도구로 채운다
+      C 실험 추적·B 레지스트리 = MLflow / D 피처 스토어 = Feast / A 파이프라인 = KFP
+      예제: Adult 30,162행, 범주형 8컬럼 → 원-핫 90컬럼, &gt;50K 24.9%
+              │
+              ▼
+[2부] MLflow - 남기고, 비교하고, 이름 붙여 내보낸다
+      실험 &gt; 실행, 실행마다 파라미터·지표·아티팩트·데이터셋·모델
+      데이터셋은 메타데이터 + 저장 경로로 기록 → 재현
+      autolog: 한 줄로 켜지만 커스텀 지표는 직접, 한 실행 = 한 모델
+      불균형 데이터에서는 전부 &lt;=50K로 찍어도 정확도 75.1% → AUC = 순서를 맞게 매기는 확률
+      레지스트리: 쿼리(AUC &gt; 0.8)로 1등 → runs:/ URI로 등록 → 버전 → 단계
+      소비자는 models:/&lt;이름&gt;/&lt;단계&gt;로 로드
+              │
+              ▼
+[3부] Feast - 같은 피처를 같은 시점 기준으로
+      흩어진 파일 → FeatureView 3개 (demographic·relationship·occupation)
+      시점 정합 조회: [T − TTL, T] 중 가장 최근 값, 미래 값은 누수
+      오프라인(parquet, 모든 시점) ──구체화──▶ 온라인(Redis, 최신 값)
+      레지스트리 = 정의 한 벌 → 학습-서빙 불일치 방지
+      조회: get_historical_features / get_online_features / 피처 서버(HTTP)
+              │
+              ▼
+[4부] KFP - 세 도구를 사람 손 없이 잇는다
+      읽기 → 피처 조회(Feast) → 추론(MLflow) → 쓰기
+      컴포넌트 = 파이썬 파일 + 이미지 + component.yaml, Pod 하나에서 실행
+      inputValue(값) / inputPath(앞 단계 파일) / outputPath(쓸 파일)
+      outputs[&quot;data_output&quot;] 참조 = 데이터 전달 + 실행 순서 → DAG
+      파라미터 14개 → 컴파일 YAML → 업로드 → 실험 → 실행
+      설계 원칙: 모듈성·입출력 명시·파라미터화·문서화
+              │
+              ▼
+      다음: 실시간 추론은 BentoML이 모델 API로 서빙한다
+</code></pre>
+<hr>
+</section>
+
+<section>
+<h2>출처</h2>
+<ul>
+<li>Benjamin Tan Wei Hao, Varun Mallya, Shanoop Padmanabhan, <em>Machine Learning Platform Engineering</em>, Manning, 4장 <em>Designing reliable ML systems</em>, 5장 <em>Orchestrating ML pipelines</em> - 본문의 그림 4장(Figure 4.1, 4.9, 4.10, 5.2)은 이 책의 영문판 원본입니다</li>
+<li>예제 코드 - <a href="https://github.com/practical-mlops/chapter-4">practical-mlops/chapter-4</a>, <a href="https://github.com/practical-mlops/chapter-5">practical-mlops/chapter-5</a></li>
+<li>CloudNet@ ML 플랫폼 엔지니어링 스터디 4·5장 정리 자료</li>
+<li>Feast 공식 문서 - <a href="https://docs.feast.dev/">docs.feast.dev</a></li>
+</ul>
+</section>
+
+        <p class="article-back">
+          <a href="/posts/">글 인덱스로 돌아가기</a>
+        </p>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+          <a href="https://github.com/beengineer500">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

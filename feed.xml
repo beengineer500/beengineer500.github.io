@@ -5,6 +5,13 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>MLOps 2편. 실험 추적, 피처 스토어, 파이프라인 - MLflow·Feast·Kubeflow Pipelines</title>
+      <link>https://beengineer500.github.io/posts/2026/mlops-02-tracking-feature-store-pipelines/</link>
+      <description>소득 분류기 예제로 MLflow 실험 추적과 모델 레지스트리, Feast 피처 스토어, Kubeflow Pipelines 배치 추론의 동작 원리를 정리합니다</description>
+      <pubDate>Sat, 31 Oct 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/mlops-02-tracking-feature-store-pipelines/</guid>
+    </item>
+    <item>
       <title>MLOps 1편. 모델이 서비스가 되기까지 - ML 생애주기와 성숙도</title>
       <link>https://beengineer500.github.io/posts/2026/mlops-01-lifecycle-and-maturity/</link>
       <description>노트북 속 모델이 운영 서비스가 되기까지 거치는 생애주기 8단계와 MLOps 성숙도 3레벨을 정리합니다</description>
