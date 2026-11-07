@@ -53,6 +53,11 @@
     "continuous-training": "코드가 아니라 데이터 변화를 트리거로 모델을 다시 학습시키는 지속 학습(CT) 기록입니다.",
     "mlflow": "MLflow로 실험을 추적하고 모델 레지스트리에서 버전과 단계를 관리하는 기록입니다.",
     "feast": "Feast 피처 스토어로 같은 피처를 학습과 추론에 같은 시점 기준으로 제공하는 기록입니다.",
-    "kubeflow-pipelines": "Kubeflow Pipelines로 컴포넌트를 DAG로 엮어 ML 워크플로를 자동화하는 기록입니다."
+    "kubeflow-pipelines": "Kubeflow Pipelines로 컴포넌트를 DAG로 엮어 ML 워크플로를 자동화하는 기록입니다.",
+    "bentoml": "모델과 서빙 코드를 Bento로 묶어 API 서비스로 배포하는 BentoML 기록입니다.",
+    "yatai": "Bento를 쿠버네티스에서 이미지로 빌드하고 배포하는 Yatai 기록입니다.",
+    "evidently": "참조 데이터와 현재 데이터를 비교해 드리프트 리포트와 대시보드를 만드는 Evidently 기록입니다.",
+    "data-drift": "운영 중 입력 데이터 분포가 학습 때와 달라지는 데이터 드리프트를 탐지한 기록입니다.",
+    "kubeflow-notebooks": "클러스터 안에서 노트북 서버를 띄우고 PodDefault로 설정을 주입하는 Kubeflow Notebooks 기록입니다."
   }
 }
