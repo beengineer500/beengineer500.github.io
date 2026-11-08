@@ -366,9 +366,9 @@ read-data → retrieve-features ─┬→ detect-drift ─(.after)─→ model-i
 
 값이 다르면 컴포넌트는 `ValueError`로 멈춥니다.
 
-태그만 맞는다고 올바른 파일을 받는 것도 아닙니다. 랜덤 포레스트 셀은 전체 피처 데이터(`feature_df`)로 데이터셋을 만들면서 source에는 `test_df_path`를 적습니다. 컴포넌트는 source URI로 파일을 내려받으므로, 이대로면 참조 데이터 대신 테스트 데이터를 받습니다.
+source 값도 확인해야 합니다. 랜덤 포레스트 셀은 전체 피처 데이터(`feature_df`)로 데이터셋을 만들면서 source에는 `test_df_path`를 적습니다. 컴포넌트는 source URI로 파일을 내려받으므로, 이 기록만 보면 참조 데이터 대신 테스트 데이터를 받게 됩니다.
 
-source를 `feature_df_path`로 고쳐 기록해야 둘이 일치합니다.
+다만 MLflow는 이름과 내용 해시(digest)가 같은 데이터셋을 하나로 묶고 먼저 기록된 source를 유지합니다. 노트북은 두 셀 모두 이름 없이 `from_pandas`를 부르고 결정 트리 셀이 같은 `feature_df`를 `feature_df_path`로 먼저 기록하므로, 순서대로 돌리면 이 버그가 드러나지 않을 수 있습니다. 재사용 여부에 기대지 않도록 랜덤 포레스트 셀의 source를 `feature_df_path`로 고쳐 두어야 합니다.
 
 MLflow는 데이터 본문 대신 source URI와 내용 해시를 기록하고, 컴포넌트는 그중 URI로 참조 데이터를 다시 받습니다. 그래서 같은 객체 키에 파일을 덮어쓰면 URI는 같아도 내용이 바뀝니다. 같은 데이터를 보장하려면 객체를 덮어쓰지 않거나 객체 버전을 함께 고정해야 합니다.
 
