@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () { try { var t = localStorage.getItem("theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) {} })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MLOps 4편. 실습 - KServe 서빙, 드리프트 모니터링, KFP 데이터 전달 · beengineer500</title>
+    <meta name="post-category" content="mlops" />
+    <meta name="post-tags" content="mlops, kserve, gitops, evidently, data-drift, kubeflow-pipelines" />
+    <meta name="description" content="홈서버 k3s에서 책 6·7장을 KServe·Argo CD·Evidently·KFP로 다시 구현하며 만난 버그와 한도를 실측값으로 정리합니다" />
+    <link rel="canonical" href="https://beengineer500.github.io/posts/2026/mlops-04-kserve-drift-data-passing-lab/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="beengineer500 RSS Feed" href="https://beengineer500.github.io/feed.xml" />
+    <meta property="og:image" content="https://beengineer500.github.io/assets/hero-engineering-desk-1280.jpg" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <link rel="preload" href="/styles.css" as="style" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">본문으로 이동</a>
+
+    <header class="site-header" aria-label="사이트 헤더">
+      <div class="shell masthead">
+        <a class="brand" href="/" aria-label="beengineer500 홈">
+          <span>beengineer500</span>
+        </a>
+        <div class="nav-group">
+          <nav class="site-nav" aria-label="주요 메뉴">
+            <a href="/">홈</a>
+            <a href="/posts/">글</a>
+            <a href="/categories/">분류</a>
+            <a href="https://github.com/beengineer500">GitHub</a>
+          </nav>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+            <span class="theme-toggle-label">라이트</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="shell article-shell" tabindex="-1">
+      <article class="article">
+        <header class="article-header">
+          <p class="eyebrow">mlops</p>
+          <h1>MLOps 4편. 실습 - KServe 서빙, 드리프트 모니터링, KFP 데이터 전달</h1>
+          <p class="lead">
+            홈서버 k3s에서 책 6·7장을 KServe·Argo CD·Evidently·KFP로 다시 구현하며 만난 버그와 한도를 실측값으로 정리합니다
+          </p>
+          <p class="status-line">2026.11.08 · 28 min read</p>
+          <div class="note-tags article-tags" aria-label="분류와 태그">
+            <a href="/categories/mlops.html">mlops</a>
+            <a href="/tags/mlops.html">mlops</a>
+            <a href="/tags/kserve.html">kserve</a>
+            <a href="/tags/gitops.html">gitops</a>
+            <a href="/tags/evidently.html">evidently</a>
+            <a href="/tags/data-drift.html">data-drift</a>
+            <a href="/tags/kubeflow-pipelines.html">kubeflow-pipelines</a>
+          </div>
+        </header>
+
+        <nav class="toc" id="toc" aria-label="목차" hidden></nav>
+
+        <section>
+<nav id="manual-toc" class="manual-toc" aria-label="목차">
+
+<h3>목차</h3>
+<p><strong><a href="#section-1">1부. 실습 환경과 책과 다른 선택</a></strong></p>
+<ul>
+<li><a href="#s1-1">1.1 홈서버 k3s 위의 플랫폼 구성</a></li>
+<li><a href="#s1-2">1.2 책과 다르게 간 네 가지</a></li>
+</ul>
+<p><strong><a href="#section-2">2부. KServe로 모델 API 만들기</a></strong></p>
+<ul>
+<li><a href="#s2-1">2.1 런타임 호환 확인 - 1.7.2 모델과 1.5.2·1.7.0 런타임</a></li>
+<li><a href="#s2-2">2.2 InferenceService - Transformer와 MLServer predictor</a></li>
+<li><a href="#s2-3">2.3 책 InputMapper의 drop_first 버그 - 한 행이면 입력이 전부 0</a></li>
+<li><a href="#s2-4">2.4 막힌 지점 다섯 가지</a></li>
+</ul>
+<p><strong><a href="#section-3">3부. GitOps 배포 - Yatai 대신 Argo CD</a></strong></p>
+<ul>
+<li><a href="#s3-1">3.1 Gitea 저장소와 Argo CD 앱 - push 후 4초</a></li>
+</ul>
+<p><strong><a href="#section-4">4부. 드리프트 모니터링</a></strong></p>
+<ul>
+<li><a href="#s4-1">4.1 Evidently UI - pandas 3에서 죽는 0.5.0</a></li>
+<li><a href="#s4-2">4.2 KFP 드리프트 파이프라인과 참조 데이터의 출처</a></li>
+<li><a href="#s4-3">4.3 실시간 드리프트 - payload logger와 수집기</a></li>
+<li><a href="#s4-4">4.4 창 100에서도 0.375~0.625 - 같은 모집단의 드리프트 판정</a></li>
+<li><a href="#s4-5">4.5 Grafana 대시보드와 메트릭 수집 지점</a></li>
+</ul>
+<p><strong><a href="#section-5">5부. KFP 데이터 전달 실험</a></strong></p>
+<ul>
+<li><a href="#s5-1">5.1 KFP 2.16.1에서 다시 잰 값 전달 - 100KB 통과, 10MB는 3MiB 한도</a></li>
+<li><a href="#s5-2">5.2 np.save의 확장자 - FileNotFoundError</a></li>
+</ul>
+<p><strong><a href="#section-6">전체 흐름 정리</a></strong> · <strong><a href="#section-7">출처</a></strong></p>
+</nav>
+
+<hr>
+</section>
+
+<section>
+<h2>1부. 실습 환경과 책과 다른 선택</h2>
+<p><a id="s1-1"></a></p>
+<h3>1.1 홈서버 k3s 위의 플랫폼 구성</h3>
+<p>4·5장(2편)을 실습한 홈서버 k3s 클러스터에서 6·7장을 이어서 실행했습니다.</p>
+<table>
+<thead>
+<tr>
+<th>구성 요소</th>
+<th>버전</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>k3s</td>
+<td>v1.36.5</td>
+<td>쿠버네티스</td>
+</tr>
+<tr>
+<td>Kubeflow (KCD)</td>
+<td>26.03.1, KFP 백엔드 2.16.1</td>
+<td>파이프라인, 프로필 네임스페이스</td>
+</tr>
+<tr>
+<td>KServe</td>
+<td>v0.18.0 (Serverless, Knative·Istio 1.30.1)</td>
+<td>모델 서빙</td>
+</tr>
+<tr>
+<td>MLflow</td>
+<td>3.0.0</td>
+<td>실험 추적, 모델 레지스트리</td>
+</tr>
+<tr>
+<td>Feast</td>
+<td>0.40.1 (Redis 온라인 스토어)</td>
+<td>피처 스토어</td>
+</tr>
+<tr>
+<td>SeaweedFS</td>
+<td><code>minio-service</code> 별칭</td>
+<td>S3 호환 객체 저장소</td>
+</tr>
+<tr>
+<td>Evidently</td>
+<td>0.5.0</td>
+<td>드리프트 리포트, 대시보드</td>
+</tr>
+<tr>
+<td>Argo CD · Gitea</td>
+<td>v3.5.6 · 1.22.6</td>
+<td>GitOps, Git 저장소와 이미지 레지스트리</td>
+</tr>
+</tbody></table>
+<p>모델은 2편에서 Production으로 올린 <code>random-forest-classifier</code> v1입니다. 이 실습에서는 테스트 AUC가 0.853이었습니다.</p>
+<figure>
+  <img src="00-lab-architecture.webp" alt="홈서버 상자 안에 host uv venv 영역(Feast CLI, 학습 노트북, kfp SDK 2.16.1, Docker)과 k3s v1.36.5 영역(Gitea, Argo CD, Prometheus·Grafana, cert-manager, Knative·Istio, SeaweedFS, MLflow 3.0.0, Redis 8.0.6, InferenceService income-classifier 안의 KServe Transformer와 MLServer predictor, drift-collector, Kubeflow Pipelines, 추론 파이프라인, Evidently UI, Feast 등록 Job, ch07 데이터 전달, drift 파이프라인)이 있고 1번부터 13번까지 번호 붙은 화살표로 연결된 구성도">
+  <figcaption>실습 전체 구성도입니다. 파란 실선이 데이터 흐름, 검은 실선이 클러스터 안 연결, 점선이 개발·배포 경로이고, 번호는 아래 흐름 순서와 같습니다. 왼쪽 Mac은 노트북을 실행한 작업 단말입니다. (출처: 직접 작성한 구성도)</figcaption>
+</figure>
+
+<p>화살표 번호 순서대로 보면 다음과 같습니다.</p>
+<ol>
+<li>Feast CLI가 feature view 3개를 레지스트리에 등록하고 parquet 원본을 SeaweedFS에 둡니다(4장).</li>
+<li><code>feast materialize</code>가 최신 피처 30162행을 Redis 온라인 스토어에 씁니다(4장).</li>
+<li>학습 노트북이 모델 3개를 학습하고, 랜덤 포레스트를 MLflow에 Production으로 등록합니다(4장).</li>
+<li>Docker가 컴포넌트 이미지를 빌드해 Gitea 레지스트리에 push합니다(5장).</li>
+<li>kfp SDK 2.16.1이 파이프라인을 컴파일해 KFP에 올립니다(5장).</li>
+<li>KFP가 추론 파이프라인(read → features → inference → write)을 실행합니다. 피처는 Feast의 historical 조회로 SeaweedFS의 오프라인 데이터에서 읽고, 30162행의 예측을 씁니다(5장).</li>
+<li>Argo CD가 Gitea 저장소 <code>income-serving</code>의 InferenceService 매니페스트를 배포합니다(3부).</li>
+<li>KServe Transformer가 <code>user_id</code>로 Redis에서 피처 8개를 읽고 원-핫으로 바꿉니다(2부).</li>
+<li>Transformer가 MLServer predictor에 v2 요청을 보내 <code>predict_proba</code>를 받습니다. predictor는 <code>storageUri</code>로 MLflow 모델 폴더를 읽습니다(2부).</li>
+<li>payload logger가 Transformer 요청을 drift-collector로 보냅니다(4.3절).</li>
+<li>drift-collector가 100행 창이 찰 때마다 Evidently에 드리프트 리포트를 올립니다(4.3절).</li>
+<li>KFP 드리프트 파이프라인이 배치 데이터의 드리프트 리포트를 Evidently에 올립니다(4.2절).</li>
+<li>KFP 데이터 전달 실험에서 값 전달은 100KB까지 통과했고, 큰 데이터는 Artifact 경로로 200MB까지 넘겼습니다(5부).</li>
+</ol>
+<p>1<del>6은 2편에서 만든 부분이고, 이 글은 7</del>13을 다룹니다.</p>
+<p><a id="s1-2"></a></p>
+<h3>1.2 책과 다르게 간 네 가지</h3>
+<p>책의 도구를 그대로 쓰지 않은 곳이 네 군데 있습니다.</p>
+<table>
+<thead>
+<tr>
+<th>책</th>
+<th>이 실습</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>BentoML 서비스</td>
+<td>KServe InferenceService (Transformer + predictor)</td>
+<td>클러스터에 KServe v0.18.0이 이미 설치돼 있음</td>
+</tr>
+<tr>
+<td>Yatai 배포</td>
+<td>Argo CD GitOps</td>
+<td>3장에서 만든 Gitea → Argo CD 경로 재사용</td>
+</tr>
+<tr>
+<td>BentoML 안의 MonitoringService</td>
+<td>KServe payload logger → 별도 수집기</td>
+<td>서빙과 드리프트 계산을 분리</td>
+</tr>
+<tr>
+<td>Kubeflow Notebooks (7.1)</td>
+<td>생략</td>
+<td>7.2 데이터 전달만 진행</td>
+</tr>
+</tbody></table>
+<p>나머지인 Evidently UI, KFP 드리프트 파이프라인, KFP 데이터 전달 실험은 책과 같은 구조로 돌렸습니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>2부. KServe로 모델 API 만들기</h2>
+<p><a id="s2-1"></a></p>
+<h3>2.1 런타임 호환 확인 - 1.7.2 모델과 1.5.2·1.7.0 런타임</h3>
+<p>KServe는 모델 형식별 표준 런타임(ClusterServingRuntime)을 제공합니다. 모델은 scikit-learn 1.7.2로 저장했는데, 런타임 이미지 안의 버전을 직접 실행해 보니 둘 다 더 낮았습니다.</p>
+<table>
+<thead>
+<tr>
+<th>ClusterServingRuntime</th>
+<th>이미지</th>
+<th>Python</th>
+<th>scikit-learn</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>kserve-sklearnserver</td>
+<td>kserve/sklearnserver:v0.18.0</td>
+<td>3.11.15</td>
+<td>1.5.2</td>
+</tr>
+<tr>
+<td>kserve-mlserver</td>
+<td>seldonio/mlserver:1.7.1</td>
+<td>3.10.12</td>
+<td>1.7.0</td>
+</tr>
+</tbody></table>
+<p>두 이미지 안에서 <code>model.pkl</code>(약 39MB)을 열고 배치 파이프라인 결과 500행을 다시 예측했습니다. 둘 다 로드에 성공했고, 배치 결과와의 최대 차이는 0.0이었습니다.</p>
+<p>다만 두 런타임 모두 <code>InconsistentVersionWarning</code>을 냈습니다. scikit-learn은 다른 버전에서 만든 pickle을 지원하지 않는다고 경고하므로, 이 결과는 이 RandomForest 모델에서만 확인한 것입니다. 운영이라면 학습과 런타임의 버전을 맞춰야 합니다.</p>
+<p>커스텀 predictor 이미지 없이 표준 런타임으로 갈 수 있다는 결론을 얻었고, <code>predict_proba</code> 출력을 받을 수 있는 <code>kserve-mlserver</code>를 골랐습니다.</p>
+<p><a id="s2-2"></a></p>
+<h3>2.2 InferenceService - Transformer와 MLServer predictor</h3>
+<p>책의 BentoML 서비스는 Feast 조회, 원-핫 변환, 예측을 한 프로세스에서 합니다. KServe에서는 이 일을 두 컴포넌트로 나눕니다.</p>
+<pre><code>POST /v1/models/income-classifier:predict  {&quot;instances&quot;: [{&quot;user_id&quot;: &quot;...&quot;}]}
+        │
+        ▼
+Transformer (직접 만든 이미지)
+  preprocess : Feast 온라인 조회 → 원-핫 → 학습 열 순서로 맞춤 → v2 요청
+        │                                      (outputs = predict_proba)
+        ▼
+Predictor (kserve-mlserver, 표준 런타임)
+  storageUri : MLflow Production 모델의 아티팩트 폴더
+        │
+        ▼
+Transformer
+  postprocess: {&quot;user_id&quot;, &quot;income_probability&quot;, &quot;income_category&quot;}
+</code></pre>
+<p>predictor는 MLflow 레지스트리의 Production 모델 폴더를 <code>storageUri</code>로 직접 가리킵니다. Yatai처럼 모델을 다른 저장소로 옮기지 않고, MLflow 레지스트리를 모델의 정본으로 둔 셈입니다.</p>
+<pre><code class="language-yaml">spec:
+  predictor:
+    serviceAccountName: kserve-s3-sa
+    model:
+      modelFormat: {name: sklearn}
+      runtime: kserve-mlserver
+      protocolVersion: v2
+      storageUri: s3://mlflow-artifacts/2/models/&lt;model_id&gt;/artifacts
+  transformer:
+    containers:
+    - name: kserve-container
+      image: &lt;gitea-registry&gt;/mlops/income-transformer@sha256:...
+      args: [&quot;--predictor_protocol&quot;, &quot;v2&quot;]
+</code></pre>
+<p>S3 접근은 ServiceAccount에 연결한 Secret으로 합니다. Secret에는 <code>serving.kserve.io/s3-endpoint</code>와 <code>serving.kserve.io/s3-usehttps: &quot;0&quot;</code> 어노테이션을 붙여 SeaweedFS를 가리킵니다.</p>
+<p>Transformer의 <code>load()</code>는 책 <code>on_startup</code>과 같은 일을 합니다. Feast 스토어를 열고, Production 실행의 <code>column_list.pkl</code>을 객체 저장소에서 읽어 학습 열 목록을 들고 있습니다.</p>
+<pre><code class="language-python">def load(self) -&gt; bool:
+    self.store = FeatureStore(repo_path=os.environ.get(&quot;FEAST_REPO&quot;, &quot;/app/feast&quot;))
+    s3 = boto3.client(&quot;s3&quot;, endpoint_url=os.environ[&quot;AWS_ENDPOINT_URL&quot;])
+    body = s3.get_object(Bucket=os.environ[&quot;COLUMN_LIST_BUCKET&quot;],
+                         Key=os.environ[&quot;COLUMN_LIST_KEY&quot;])[&quot;Body&quot;].read()
+    self.col_list = pickle.loads(body)
+    self.ready = True
+    return self.ready
+</code></pre>
+<p>열 목록의 위치는 환경 변수 <code>COLUMN_LIST_KEY</code>로 받으므로, 모델 버전을 바꾸면 이 값도 함께 바꿔야 합니다. 동시에 들어온 요청의 <code>user_id</code>가 섞이지 않도록, preprocess에서 요청 ID별로 <code>user_id</code> 목록을 저장해 두고 postprocess에서 꺼내 응답에 붙입니다.</p>
+<p>검증 결과는 다음과 같습니다.</p>
+<ul>
+<li><strong>predictor 단독</strong> - 500행을 넣어 배치 결과와 비교했고 최대 차이는 0.0입니다.</li>
+<li><strong>Transformer부터 끝까지</strong> - 사용자 20명을 넣어 로컬 모델 예측과 비교했고 최대 차이는 0.0, 응답은 약 40ms입니다.</li>
+<li><strong>없는 user_id</strong> - Feast에 피처가 없으면 Transformer가 400을 돌려줍니다.</li>
+</ul>
+<p>세 결과가 맞아 이 구성을 그대로 GitOps 저장소에 올렸습니다(3부).</p>
+<p><a id="s2-3"></a></p>
+<h3>2.3 책 InputMapper의 drop_first 버그 - 한 행이면 입력이 전부 0</h3>
+<p>옮기는 중에 책 코드의 버그를 하나 찾았습니다. 책의 <code>InputMapper</code>는 피처 데이터프레임을 <code>pd.get_dummies(..., drop_first=True)</code>로 원-핫 변환한 뒤 학습 열 목록에 맞춥니다.</p>
+<p><code>drop_first=True</code>는 범주형 컬럼마다 첫 번째 범주의 더미 열을 지웁니다. 요청마다 따로 인코딩하면 학습 때와 다른 범주가 지워질 수 있고, API 요청처럼 한 행만 들어오면 문제가 극단으로 드러납니다. 한 행에서는 컬럼마다 범주가 하나뿐이라 그 하나가 지워지고, 학습 열에 맞추면 입력이 전부 0이 됩니다.</p>
+<pre><code>한 행 입력   Sex=Male, Race=White, ...   (컬럼마다 범주 1개)
+drop_first   컬럼마다 첫 범주 삭제 → 남는 더미 열 0개
+reindex      학습 열 90개를 0으로 채움 → 모든 사용자가 같은 입력
+</code></pre>
+<p>실측으로도 확인했습니다. 책 방식은 남는 더미 열이 0개였고, 수정 후에는 7개가 1로 켜졌습니다. 책 방식대로면 모든 사용자가 같은 예측을 받습니다.</p>
+<p>수정은 <code>drop_first</code>를 빼고 학습 열 목록으로 <code>reindex</code>하는 것입니다. 학습 때 빠진 기준 범주는 학습 열 목록에 없으므로 <code>reindex</code>가 알아서 버립니다.</p>
+<pre><code class="language-python">x = (pd.get_dummies(feats.drop(columns=[&quot;user_id&quot;]), dtype=float)
+       .reindex(columns=self.col_list, fill_value=0.0))
+</code></pre>
+<p><a id="s2-4"></a></p>
+<h3>2.4 막힌 지점 다섯 가지</h3>
+<p>InferenceService가 응답하기까지 다섯 군데에서 막혔습니다.</p>
+<ul>
+<li><strong>kserve SDK와 Feast의 protobuf 충돌</strong><ul>
+<li>kserve SDK 0.18은 protobuf 6을, Feast 0.40.1은 protobuf 4를 요구합니다.</li>
+<li>Transformer 이미지의 kserve SDK를 0.15.2로 낮췄습니다. 컨트롤러 0.18과 프로토콜이 같아 동작했습니다. pyarrow는 20.0.0으로 고정했습니다.</li>
+</ul>
+</li>
+<li><strong>Knative의 이미지 digest 조회</strong><ul>
+<li>Knative는 이미지 태그를 HTTPS로 조회해 digest로 바꿉니다. HTTP로만 열린 Gitea 레지스트리에서는 이 조회가 실패합니다.</li>
+<li>Transformer 이미지를 태그 대신 <code>@sha256:...</code> digest로 적었습니다.</li>
+</ul>
+</li>
+<li><strong>프로필 네임스페이스의 AuthorizationPolicy</strong><ul>
+<li>Kubeflow 프로필 네임스페이스의 <code>ns-owner-access-istio</code>는 같은 네임스페이스와 ingress만 허용해서, Knative 경로를 거치는 호출을 막습니다.</li>
+<li>ISVC 파드에만 <code>knative-serving</code>·<code>istio-system</code> 출처를 허용하는 AuthorizationPolicy를 더했습니다. Istio의 selector는 <code>matchLabels</code>만 받습니다.</li>
+</ul>
+</li>
+<li><strong>activator 경유 호출의 503</strong><ul>
+<li>Transformer에서 predictor로 가는 호출이 Knative activator에서 <code>503 UF</code>(connection refused)로 실패했습니다. 원인은 확인하지 못했습니다.</li>
+<li><code>autoscaling.knative.dev/min-scale: &quot;1&quot;</code>과 <code>target-burst-capacity: &quot;0&quot;</code>으로 activator를 요청 경로에서 빼서 해결했습니다.</li>
+</ul>
+</li>
+<li><strong>MLServer의 메트릭 폴더</strong><ul>
+<li>MLServer는 시작 폴더에 <code>.metrics</code>를 씁니다. 읽기 전용 볼륨에서 로컬로 시험할 때는 <code>MLSERVER_METRICS_DIR</code>를 따로 줍니다.</li>
+</ul>
+</li>
+</ul>
+<p>다섯 가지 중 activator 503만 원인을 모른 채 우회했고, 나머지는 원인을 확인하고 고쳤습니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>3부. GitOps 배포 - Yatai 대신 Argo CD</h2>
+<p><a id="s3-1"></a></p>
+<h3>3.1 Gitea 저장소와 Argo CD 앱 - push 후 4초</h3>
+<p>책은 Yatai UI에서 배포를 만들지만, 이 실습은 매니페스트를 Git에 두고 Argo CD가 클러스터에 맞추게 했습니다. 3장에서 만든 Gitea → Argo CD 경로를 그대로 씁니다.</p>
+<pre><code>Gitea 저장소 mlops/income-serving
+  income-classifier/   sa.yaml, isvc-income.yaml, authz-kserve.yaml
+  evidently/           evidently-ui.yaml, drift-collector.yaml
+        │ push → Gitea 웹훅
+        ▼
+Argo CD 앱 income-classifier, evidently   (automated prune·selfHeal)
+        │
+        ▼
+클러스터
+</code></pre>
+<p>Secret 세 개는 값이 들어 있어 저장소에 두지 않고 클러스터에 따로 만들었습니다. Argo CD 앱의 <code>repoURL</code>은 Gitea의 ROOT_URL과 같은 주소로 맞췄습니다. 웹훅 payload의 저장소 주소와 앱의 <code>repoURL</code>이 다르면 Argo CD가 이벤트를 받고도 무시하기 때문입니다(3장에서 겪은 문제).</p>
+<p>ISVC에 레이블 하나를 추가해 push했더니 4초 만에 클러스터에 반영되고 앱이 Synced가 됐습니다. 레이블만 바꿔도 Knative가 새 revision을 만들어 파드가 교체됐고, 교체가 끝난 뒤 호출은 200이었습니다.</p>
+<p>Argo CD는 InferenceService의 health를 표시하지 않았습니다(빈 값). ISVC가 준비됐는지는 <code>kubectl get isvc</code>로 따로 확인합니다.</p>
+<figure>
+  <img src="03-argocd-income-classifier.webp" alt="Argo CD v3.5.6의 income-classifier 애플리케이션 상세 화면. APP HEALTH Healthy, SYNC STATUS Synced to main(60b35f6), LAST SYNC Sync OK, 커밋 메시지 feat: M8 drift 수집기와 Transformer payload, 아래 리소스 목록에 transformer·predictor Pod와 Service들이 Healthy로 표시된다">
+  <figcaption>Argo CD의 <code>income-classifier</code> 앱입니다. 앱은 Synced·Healthy이고 마지막 동기화는 4부의 payload logger를 추가한 커밋입니다. 목록의 Pod와 Service는 Healthy로 보이지만, 이 화면에서 InferenceService 자체의 준비 상태는 알 수 없어 <code>kubectl get isvc</code>로 따로 확인했습니다. (출처: 직접 실습한 클러스터 화면)</figcaption>
+</figure>
+
+<hr>
+</section>
+
+<section>
+<h2>4부. 드리프트 모니터링</h2>
+<p><a id="s4-1"></a></p>
+<h3>4.1 Evidently UI - pandas 3에서 죽는 0.5.0</h3>
+<p>Evidently UI 0.5.0을 이미지로 만들 때 버전을 직접 고정해야 했습니다.</p>
+<pre><code class="language-dockerfile">FROM python:3.11-slim-bookworm
+RUN pip install --no-cache-dir evidently==0.5.0 litestar==2.12.1 sniffio \
+    pandas==2.2.3 numpy==1.26.4
+</code></pre>
+<p>pandas를 고정하지 않으면 pandas 3이 설치되고, 0.5.0이 쓰는 내부 함수가 없어 <code>infer_dtype_from_object</code> ImportError로 죽습니다. litestar와 sniffio도 0.5.0이 고정하지 않아 직접 맞췄습니다.</p>
+<p>배포는 GitOps 저장소의 <code>evidently/</code>(Namespace, PVC 1Gi, Deployment, Service)로 했습니다. 책의 <code>build_evidently_dashboard.py</code>로 <code>income-classifier</code> 프로젝트와 패널 12개를 만들었습니다.</p>
+<p>같은 태그로 이미지를 다시 올리면 노드가 캐시된 이미지를 그대로 써서 새 이미지를 받지 않았습니다. 태그를 <code>0.5.0-r2</code>로 바꿔 Git으로 반영했습니다. selfHeal이 켜진 앱에 <code>kubectl rollout restart</code>를 하면 Argo CD가 되돌릴 수 있으므로, 바꿀 것은 Git으로 바꿉니다.</p>
+<p><a id="s4-2"></a></p>
+<h3>4.2 KFP 드리프트 파이프라인과 참조 데이터의 출처</h3>
+<p>책의 5단계 파이프라인(fetch → retrieve_features → detect_drift → run_inference → write)을 그대로 옮겼습니다. 컴포넌트 이미지는 하나로 합쳐 2편의 bookworm 이미지에 evidently 0.5.0, mlflow 3.0.0(책은 2.7.0), scikit-learn 1.7.2를 더했습니다.</p>
+<p>kfp 2.16.1로 컴파일한 run <code>ch06-drift-1</code>은 SUCCEEDED였습니다.</p>
+<ul>
+<li><strong>추론 결과</strong> - <code>inference-datasets/income_predictions_with_drift.parquet</code>, 30162행 × 91열입니다. 예측 확률 0.5 이상이 21.8%로 2편 배치 결과와 같습니다.</li>
+<li><strong>드리프트</strong> - Evidently 프로젝트에 리포트 1건이 올라갔고, 드리프트 컬럼 비율은 0.0이었습니다. 현재 데이터가 참조 데이터와 같은 30162행이라 분포가 같으니 0.0이 맞습니다.</li>
+<li><strong>분기</strong> - 책 그대로 <code>.after</code>만 쓰므로 드리프트 결과와 상관없이 추론이 진행됩니다. 분기하려면 <code>dsl.If</code>가 필요합니다(3편 3.4절).</li>
+</ul>
+<p>3편 3.4절에서 본 대로, 저자 노트북의 랜덤 포레스트 셀은 <code>reference_features</code> 데이터셋의 source에 테스트 파일 경로를 적습니다. 그런데 <code>detect_drift</code>가 실제로 받은 파일은 원래 피처 파일 <code>feature_df-523942a8….csv</code>(피처 8열)였습니다.</p>
+<pre><code>결정 트리 셀      feature_df → source = feature_df 경로   (먼저 기록)
+랜덤 포레스트 셀  feature_df → source = test 경로         (버그)
+                  └ 이름(기본값)과 내용 해시(digest)가 같은 데이터셋
+MLflow            같은 데이터셋으로 묶어 먼저 기록된 source를 유지
+결과              detect_drift는 원래 피처 파일을 받음 → 버그가 드러나지 않음
+</code></pre>
+<p>MLflow는 이름과 digest가 같은 데이터셋을 하나로 묶고 먼저 기록된 source를 유지합니다. 노트북은 두 셀 모두 이름 없이 <code>from_pandas</code>를 부르므로 이름이 같고, 노트북을 처음부터 순서대로 돌려 결정 트리 셀이 먼저 기록했습니다.</p>
+<p>그래서 이 환경에서는 잘못된 source가 드러나지 않았습니다. 기존 기록이 없는 환경에서는 잘못된 source가 그대로 등록될 수 있으므로 랜덤 포레스트 셀의 source를 <code>feature_df_path</code>로 고쳐 두어야 합니다.</p>
+<p><a id="s4-3"></a></p>
+<h3>4.3 실시간 드리프트 - payload logger와 수집기</h3>
+<p>책은 BentoML 서비스 안의 <code>MonitoringService</code>가 요청을 모아 리포트를 만듭니다. KServe에서는 서빙 파드에 드리프트 계산을 넣지 않고, 요청을 밖으로 흘려 별도 수집기가 계산하게 했습니다.</p>
+<pre><code>클라이언트 → Transformer ── logger: {mode: request} ──→ KServe agent
+                                                          │ CloudEvents
+                                                          ▼
+                                  drift-collector (evidently 네임스페이스)
+                                    user_id로 Feast 원 피처를 다시 조회
+                                    창 100행을 채우면 리포트 생성
+                                          │
+                                          ▼
+                                  Evidently UI 프로젝트 income-classifier
+</code></pre>
+<p>Transformer에 <code>logger: {mode: request, url: http://drift-collector...}</code>를 달면, KServe agent가 요청 본문을 CloudEvents로 수집기에 보냅니다. 요청에는 <code>user_id</code>만 있으므로 수집기가 Feast에서 원 피처 8개를 다시 읽어 창에 쌓습니다. 창의 동작은 책 <code>MonitoringService</code>와 같습니다.</p>
+<p>수집기는 Feast와 SeaweedFS에 접근해야 해서 Secret 두 개를 evidently 네임스페이스에 복사했고, SeaweedFS가 있는 kubeflow 네임스페이스에 evidently 네임스페이스의 접근을 허용하는 NetworkPolicy를 하나 더 만들었습니다.</p>
+<p>payload logger는 Transformer 파드의 queue-proxy(8012)를 지나는 요청만 기록합니다. 컨테이너 포트 8080으로 바로 보내면 agent를 건너뛰어 기록이 남지 않습니다.</p>
+<p><a id="s4-4"></a></p>
+<h3>4.4 창 100에서도 0.375~0.625 - 같은 모집단의 드리프트 판정</h3>
+<p>요청 120건과 50건을 보냈고 모두 200이었습니다. 창 100이 찬 뒤부터 요청마다 리포트를 만들어 수집기 로그에 &quot;Running report&quot;가 71회 찍혔고, Evidently에도 실시간 리포트 71건이 쌓였습니다.</p>
+<p>Evidently API로 71건의 <code>share_of_drifted_columns</code>를 집계하면 0.5가 53건, 0.375가 17건, 0.625가 1건입니다. 요청은 학습 데이터와 같은 모집단에서 무작위로 뽑은 사용자인데도 피처 8개 중 3~5개가 드리프트로 판정됐습니다.</p>
+<p>데이터셋 판정 조건이 &quot;0.5 이상&quot;이므로(3편 3.2절), 71건 중 54건이 데이터셋 전체 드리프트로 판정됐습니다.</p>
+<figure>
+  <img src="01-evidently-dashboard.webp" alt="Evidently 0.5.0의 Income Classifier Batch Data Drift Dashboard. Model Calls 37262 count, Share of Drifted Features 0.5 share, 아래 Dataset Quality 그래프에서 Drift Share 선이 23:42의 0에서 23:45의 0.625까지 오른 뒤 0.375와 0.5 사이를 오가고 Missing Values Share는 0에 머문다">
+  <figcaption>배치와 실시간 리포트가 함께 쌓인 대시보드입니다. Model Calls 37262는 KFP 드리프트 파이프라인의 30162행에 실시간 리포트 71회 × 창 100행을 더한 값입니다. 최근 값 패널(<code>CounterAgg.LAST</code>)은 마지막 실시간 리포트의 0.5를 보여 주고, 선 그래프는 첫 점 0.0(배치 리포트) 뒤로 실시간 리포트가 0.625에서 시작해 0.375와 0.5 사이를 오갑니다. (출처: 직접 실습한 클러스터 화면)</figcaption>
+</figure>
+
+<p>마지막 실시간 리포트를 열어 컬럼별 결과를 확인했습니다. 피처 8개 모두 Jensen-Shannon 거리로 판정됐고, 임곗값 0.1 이상인 4개가 드리프트였습니다.</p>
+<figure>
+  <img src="02-column-drift-scores.webp" alt="컬럼별 Jensen-Shannon 거리 가로 막대그래프. Native_country 0.186, Education 0.167, Occupation 0.125, Race 0.100은 진한 파랑으로 점선 임곗값 0.1 이상에 있고, Marital-Status 0.081, Relationship 0.062, Workclass 0.052, Sex 0.027은 옅은 파랑으로 임곗값 아래에 있다">
+  <figcaption>마지막 실시간 리포트(창 100행)의 컬럼별 드리프트 점수입니다. 3편 3.2절의 기본 선택대로 범주형 8개 모두 Jensen-Shannon 거리가 쓰였고, 0.5.0은 거리가 0.1 이상이면 드리프트로 판정합니다. 화면에 0.1로 표시된 Race도 드리프트여서 8개 중 4개, 즉 0.5가 데이터셋 임곗값에 닿았고, 그래프에는 화면 표시값을 그대로 썼습니다. (출처: Evidently 리포트 값을 직접 그린 그래프)</figcaption>
+</figure>
+
+<p>책은 창 50에서 0.875가 나온 것을 표본 크기 탓일 수 있다고 봤습니다. 창을 100으로 키우자 비율은 대부분 0.375~0.5로 내려갔지만, 여전히 데이터셋 임곗값 0.5에 닿는 리포트가 나왔습니다.</p>
+<p>점수가 높은 <code>Native_country</code>와 <code>Education</code>은 범주가 많은 컬럼이라, 100행 안에서 희귀 범주의 비율이 흔들렸을 가능성이 있습니다. 다만 이번 기록은 리포트 하나의 컬럼별 값이라 원인을 확정하지는 못했습니다.</p>
+<p>경보로 쓰려면 창 크기와 임곗값을 바꿔 가며 같은 모집단의 요청으로 경보 빈도를 비교한 뒤 조건을 정해야 합니다. 연속으로 넘을 때만 알리는 규칙도 후보입니다.</p>
+<p><a id="s4-5"></a></p>
+<h3>4.5 Grafana 대시보드와 메트릭 수집 지점</h3>
+<p>운영 지표는 Grafana 대시보드 &quot;ML Study - income-classifier (KServe)&quot;로 봅니다. 패널은 요청 수, 단계별(preprocess·predict·postprocess) p95 지연, 누적 요청 수입니다.</p>
+<p>메트릭을 긁을 수 있는 지점은 네 곳을 시험했습니다.</p>
+<table>
+<thead>
+<tr>
+<th>후보</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Istio 표준 메트릭 <code>istio_requests_total</code></td>
+<td>이 클러스터에서 생성되지 않음</td>
+</tr>
+<tr>
+<td>queue-proxy 9091</td>
+<td>사이드카를 거치며 503</td>
+</tr>
+<tr>
+<td>MLServer 8082 <code>/metrics</code></td>
+<td>호스트에서는 응답하지만 PodMonitor 대상에 잡히지 않음(원인 미확인)</td>
+</tr>
+<tr>
+<td>Transformer(KServe Python 서버) 8080 <code>/metrics</code></td>
+<td>수집 성공</td>
+</tr>
+</tbody></table>
+<p>결국 PodMonitor <code>kserve-isvc</code>가 Transformer의 8080 <code>/metrics</code>를 긁도록 했습니다. 단계별 지연이 Transformer 서버의 지표에 들어 있어서 대시보드 패널은 이것으로 채웠습니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>5부. KFP 데이터 전달 실험</h2>
+<p><a id="s5-1"></a></p>
+<h3>5.1 KFP 2.16.1에서 다시 잰 값 전달 - 100KB 통과, 10MB는 3MiB 한도</h3>
+<p>3편 5.2절의 값 전달과 경로 전달을 이 클러스터에서 실험했습니다. 스터디 자료의 실험(KFP 2.4.1, SDK 2.9.0)과 같은 코드로, <code>size_kb × 1,024</code>바이트 문자열을 반환값과 아티팩트 파일로 각각 넘겼습니다.</p>
+<pre><code class="language-python">@dsl.component
+def make_value(size_kb: int) -&gt; str:
+    return &quot;x&quot; * (size_kb * 1024)
+
+@dsl.component
+def make_file(size_kb: int, out: Output[Artifact]):
+    with open(out.path, &quot;w&quot;) as f:
+        f.write(&quot;x&quot; * (size_kb * 1024))
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>전달 방식 · size_kb</th>
+<th>KFP 2.16.1 (이 실습)</th>
+<th>KFP 2.4.1 (스터디 자료)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>값 · 10, 60</td>
+<td>성공</td>
+<td>성공</td>
+</tr>
+<tr>
+<td>값 · 100</td>
+<td><strong>성공</strong></td>
+<td>실패 - argument list too long</td>
+</tr>
+<tr>
+<td>값 · 1,000</td>
+<td>실패 - Argo가 템플릿을 ConfigMap으로 옮기려다 권한 오류</td>
+<td>실패 - annotations 262,144바이트 초과</td>
+</tr>
+<tr>
+<td>값 · 10,000</td>
+<td>실패 - <code>Request entity too large: limit is 3145728</code></td>
+<td>실패 - MLMD gRPC 4MB 한도</td>
+</tr>
+<tr>
+<td>경로 · 10,000, 200,000</td>
+<td>성공</td>
+<td>성공</td>
+</tr>
+</tbody></table>
+<p>큰 데이터는 값이 아니라 경로로 넘긴다는 결론은 같고, 달라진 것은 한도 지점과 메시지입니다.</p>
+<p>1MB 실패는 KFP 화면에 메시지가 남지 않아 workflow-controller 로그로 원인을 찾았습니다.</p>
+<pre><code>Argo는 단계 템플릿(입력값 포함)을 init 컨테이너 환경 변수 ARGO_TEMPLATE에 넣음
+  ├─ 템플릿이 128KiB(131,072바이트) 이하 → 환경 변수로 전달 → 100KB 값 통과
+  └─ 초과 → 파드 이름의 ConfigMap으로 옮겨(offload) 마운트
+            └─ kubeflow:argo 서비스 계정에 사용자 네임스페이스의
+               ConfigMap 생성 권한 없음 → 드라이버가 Pending에서 멈춤 → 1MB 값 실패
+</code></pre>
+<p>100KB(102,400자)가 통과한 것도 같은 기준 때문입니다. 템플릿을 합쳐도 128KiB 아래라 환경 변수로 넘어갔습니다.</p>
+<p>권한을 줘도 다음 한도는 ConfigMap의 데이터 합계 1MiB(1,048,576바이트)입니다. 서버 측 dry-run에서 1,000KB는 허용되고 1,100KB는 거부됐으므로, 1MB 값(1,024,000바이트)은 템플릿 몫을 더하면 경계에 걸립니다. 권한을 주고 다시 돌리지는 않았습니다.</p>
+<p>10MB 값은 use-value 드라이버가 쿠버네티스 API 서버에 객체를 쓰는 단계에서 API 서버의 요청 본문 한도 3MiB(3,145,728바이트)에 막혔습니다.</p>
+<p>값 전달은 파드 환경 변수, ConfigMap, API 요청처럼 크기 한도가 있는 관리 경로를 지나고, 그 지점은 백엔드 버전과 클러스터 권한에 따라 달라집니다. 경로 전달은 데이터 본문을 객체 저장소에 두고 짧은 URI만 이 경로로 보내므로 200MB도 통과했습니다.</p>
+<p>아티팩트는 SeaweedFS <code>mlpipeline</code> 버킷의 사용자별 접두사 <code>private-artifacts/&lt;네임스페이스&gt;/</code> 아래에 저장됐습니다. 멀티유저 KFP에서는 실행도 SA 토큰으로 사용자 네임스페이스에 제출했습니다.</p>
+<p>kfp 2.16.1의 기본 <code>base_image</code>는 <code>python:3.11</code>이었습니다(스터디 자료의 SDK 2.9.0은 <code>python:3.8</code>). 2027-10-01부터 3.12로 바뀐다는 경고도 나왔습니다.</p>
+<p><a id="s5-2"></a></p>
+<h3>5.2 np.save의 확장자 - FileNotFoundError</h3>
+<p>NumPy 배열을 경로로 넘기는 실험은 스터디 자료의 A3 항목을 재현한 것입니다. 자료에 코드가 없어 <code>np.save(out.path, arr)</code>로 직접 다시 썼고, 이 방식은 실패했습니다.</p>
+<pre><code class="language-python">np.save(out.path, arr)      # 실제 파일은 out.path + &quot;.npy&quot;
+</code></pre>
+<p><code>np.save</code>는 경로가 <code>.npy</code>로 끝나지 않으면 확장자를 붙여 저장합니다. 런처는 원래 경로 <code>.../out</code>에서 파일을 찾으므로 다음 단계가 <code>FileNotFoundError</code>로 실패했습니다.</p>
+<p>파일 핸들을 열어 넘기면 확장자가 붙지 않습니다. 이 수정본에는 아티팩트 메타데이터도 함께 남겼습니다.</p>
+<pre><code class="language-python">with open(out.path, &quot;wb&quot;) as f:
+    np.save(f, arr)
+out.metadata[&quot;samples&quot;] = int(arr.shape[0])
+out.metadata[&quot;shape&quot;] = list(arr.shape)
+</code></pre>
+<p>수정본은 성공했고, 다음 단계가 <code>samples=3</code>, <code>shape=[3, 4]</code> 메타데이터를 그대로 받았습니다.</p>
+<hr>
+</section>
+
+<section>
+<h2>전체 흐름 정리</h2>
+<pre><code>      홈서버 k3s v1.36.5 · KCD 26.03.1(KFP 2.16.1) · KServe v0.18.0 · MLflow 3.0.0 · Feast 0.40.1
+              │
+              ▼
+[1부] 책과 다르게 간 곳
+      BentoML → KServe, Yatai → Argo CD, MonitoringService → payload logger + 수집기, Notebooks 생략
+              │
+              ▼
+[2부] KServe 서빙
+      sklearn 1.7.2 모델 → MLServer(1.7.0)·sklearnserver(1.5.2) 모두 로드, 차이 0.0, 경고만
+      Transformer(Feast·원-핫) + MLServer predictor(storageUri = MLflow 모델 폴더)
+      책 InputMapper: 한 행 + drop_first → 입력 전부 0 → reindex로 수정
+      protobuf 충돌 / digest 조회 / AuthorizationPolicy / activator 503 / .metrics
+              │
+              ▼
+[3부] GitOps
+      Gitea mlops/income-serving → 웹훅 → Argo CD 앱 → push 후 4초 반영
+              │
+              ▼
+[4부] 드리프트
+      Evidently 0.5.0은 pandas 2.2.3·numpy 1.26.4 고정
+      KFP drift run SUCCEEDED, 이름·digest가 같은 첫 기록의 source 유지 → RF source 버그가 가려짐
+      payload logger → 수집기(창 100) → 리포트 71건, drift 비율 0.375~0.625, 54건이 데이터셋 드리프트
+      메트릭은 Transformer 8080 /metrics만 수집됨
+              │
+              ▼
+[5부] KFP 데이터 전달
+      2.16.1: 값 100KB 통과(값을 포함한 템플릿이 128KiB 아래라 환경 변수로 전달), 1MB는 ConfigMap 권한, 10MB는 API 서버 3MiB
+      경로 200,000KiB 통과 / np.save(path)는 .npy를 붙임 → 파일 핸들로 저장
+</code></pre>
+<hr>
+</section>
+
+<section>
+<h2>출처</h2>
+<ul>
+<li>Benjamin Tan Wei Hao, Varun Mallya, Shanoop Padmanabhan, <em>Machine Learning Platform Engineering</em>, Manning, 6장 <em>Productionizing ML models</em>, 7장 <em>Data analysis and preparation</em></li>
+<li>예제 코드 - <a href="https://github.com/practical-mlops/chapter-4">practical-mlops/chapter-4</a>, <a href="https://github.com/practical-mlops/chapter-6">practical-mlops/chapter-6</a></li>
+<li>CloudNet@ ML 플랫폼 엔지니어링 스터디 6·7장 정리 자료 - 비교 기준으로 쓴 KFP 2.4.1 실험 결과</li>
+<li>KServe 문서 - <a href="https://kserve.github.io/website/">kserve.github.io</a></li>
+<li>Evidently 문서 - <a href="https://docs.evidentlyai.com/">docs.evidentlyai.com</a></li>
+</ul>
+</section>
+
+        <p class="article-back">
+          <a href="/posts/">글 인덱스로 돌아가기</a>
+        </p>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <p>beengineer500 · personal engineering notes</p>
+        <nav aria-label="푸터 링크">
+          <a href="/">홈</a>
+          <a href="/posts/">글 인덱스</a>
+          <a href="/categories/">분류</a>
+          <a href="https://github.com/beengineer500">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

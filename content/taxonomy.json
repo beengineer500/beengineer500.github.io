@@ -58,6 +58,8 @@
     "yatai": "Bento를 쿠버네티스에서 이미지로 빌드하고 배포하는 Yatai 기록입니다.",
     "evidently": "참조 데이터와 현재 데이터를 비교해 드리프트 리포트와 대시보드를 만드는 Evidently 기록입니다.",
     "data-drift": "운영 중 입력 데이터 분포가 학습 때와 달라지는 데이터 드리프트를 탐지한 기록입니다.",
-    "kubeflow-notebooks": "클러스터 안에서 노트북 서버를 띄우고 PodDefault로 설정을 주입하는 Kubeflow Notebooks 기록입니다."
+    "kubeflow-notebooks": "클러스터 안에서 노트북 서버를 띄우고 PodDefault로 설정을 주입하는 Kubeflow Notebooks 기록입니다.",
+    "kserve": "KServe InferenceService로 모델을 쿠버네티스에 서빙한 기록입니다.",
+    "gitops": "Git 저장소를 정본으로 두고 Argo CD가 클러스터를 맞추게 한 배포 기록입니다."
   }
 }

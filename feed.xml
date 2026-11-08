@@ -12,6 +12,13 @@
       <guid>https://beengineer500.github.io/posts/2026/mlops-03-bentoml-evidently-notebooks/</guid>
     </item>
     <item>
+      <title>MLOps 4편. 실습 - KServe 서빙, 드리프트 모니터링, KFP 데이터 전달</title>
+      <link>https://beengineer500.github.io/posts/2026/mlops-04-kserve-drift-data-passing-lab/</link>
+      <description>홈서버 k3s에서 책 6·7장을 KServe·Argo CD·Evidently·KFP로 다시 구현하며 만난 버그와 한도를 실측값으로 정리합니다</description>
+      <pubDate>Sun, 08 Nov 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/mlops-04-kserve-drift-data-passing-lab/</guid>
+    </item>
+    <item>
       <title>MLOps 2편. 실험 추적, 피처 스토어, 파이프라인 - MLflow·Feast·Kubeflow Pipelines</title>
       <link>https://beengineer500.github.io/posts/2026/mlops-02-tracking-feature-store-pipelines/</link>
       <description>소득 분류기 예제로 MLflow 실험 추적과 모델 레지스트리, Feast 피처 스토어, Kubeflow Pipelines 배치 추론의 동작 원리를 정리합니다</description>
