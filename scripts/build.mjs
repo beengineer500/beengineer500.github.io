@@ -49,6 +49,21 @@ marked.use({
   },
 });
 
+// 취소선은 ~~text~~만 허용한다. 기본 GFM은 ~text~도 취소선으로 바꿔
+// "1~6 … 7~13" 같은 범위 표기가 깨진다. undefined를 돌려주면 기본 규칙으로 넘어가지 않는다.
+marked.use({
+  tokenizer: {
+    del(src) {
+      const match = /^~~(?=[^\s~])([\s\S]*?[^\s~])~~(?!~)/.exec(src);
+      if (!match) return undefined;
+      return { type: "del", raw: match[0], text: match[1], tokens: this.lexer.inlineTokens(match[1]) };
+    },
+  },
+});
+if (marked.parseInline("1~6, 7~13").includes("<del>") || !marked.parseInline("~~x~~").includes("<del>x</del>")) {
+  throw new Error("strikethrough rule self-check failed");
+}
+
 function hasMermaidBlock(articleHtml) {
   return articleHtml.includes('<pre class="mermaid">');
 }
