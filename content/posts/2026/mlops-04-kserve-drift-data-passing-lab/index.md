@@ -87,7 +87,6 @@ tags: mlops, kserve, gitops, evidently, data-drift, kubeflow-pipelines
 12. KFP 드리프트 파이프라인이 배치 데이터의 드리프트 리포트를 Evidently에 올립니다(4.2절).
 13. KFP 데이터 전달 실험에서 값 전달은 100KB까지 통과했고, 큰 데이터는 Artifact 경로로 200MB까지 넘겼습니다(5부).
 
-1~6은 2편에서 만든 부분이고, 이 글은 7~13을 다룹니다.
 
 <a id="s1-2"></a>
 
