@@ -60,6 +60,10 @@
     "data-drift": "운영 중 입력 데이터 분포가 학습 때와 달라지는 데이터 드리프트를 탐지한 기록입니다.",
     "kubeflow-notebooks": "클러스터 안에서 노트북 서버를 띄우고 PodDefault로 설정을 주입하는 Kubeflow Notebooks 기록입니다.",
     "kserve": "KServe InferenceService로 모델을 쿠버네티스에 서빙한 기록입니다.",
-    "gitops": "Git 저장소를 정본으로 두고 Argo CD가 클러스터를 맞추게 한 배포 기록입니다."
+    "gitops": "Git 저장소를 정본으로 두고 Argo CD가 클러스터를 맞추게 한 배포 기록입니다.",
+    "data-preparation": "다운로드, 분할, 형식 변환, QA를 파이프라인 컴포넌트로 나눈 데이터 준비 기록입니다.",
+    "yolo": "Ultralytics YOLO로 객체 탐지 모델을 학습하고 검증한 기록입니다.",
+    "object-detection": "이미지 안의 물체 위치와 클래스를 찾는 객체 탐지 모델 실습 기록입니다.",
+    "pvc": "PersistentVolumeClaim으로 파이프라인 태스크가 데이터를 공유한 기록입니다."
   }
 }
