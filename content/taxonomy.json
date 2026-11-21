@@ -64,6 +64,9 @@
     "data-preparation": "다운로드, 분할, 형식 변환, QA를 파이프라인 컴포넌트로 나눈 데이터 준비 기록입니다.",
     "yolo": "Ultralytics YOLO로 객체 탐지 모델을 학습하고 검증한 기록입니다.",
     "object-detection": "이미지 안의 물체 위치와 클래스를 찾는 객체 탐지 모델 실습 기록입니다.",
-    "pvc": "PersistentVolumeClaim으로 파이프라인 태스크가 데이터를 공유한 기록입니다."
+    "pvc": "PersistentVolumeClaim으로 파이프라인 태스크가 데이터를 공유한 기록입니다.",
+    "tensorboard": "TensorBoard로 학습 로그와 모델 그래프를 시각화한 기록입니다.",
+    "model-registry": "모델 레지스트리의 버전과 alias로 승격과 롤백을 관리하는 기록입니다.",
+    "recommender-system": "사용자와 아이템 임베딩으로 추천 모델을 학습하고 평가한 기록입니다."
   }
 }

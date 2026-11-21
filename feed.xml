@@ -5,6 +5,13 @@
     <link>https://beengineer500.github.io/</link>
     <description>beengineer500의 개인 기술 메모장. 개발, 운영, 자동화 과정에서 배운 것을 짧고 다시 실행 가능하게 기록합니다.</description>
     <item>
+      <title>MLOps 6편. 학습 추적부터 모델 서빙까지 - TensorBoard·MLflow 레지스트리·BentoML·KServe</title>
+      <link>https://beengineer500.github.io/posts/2026/mlops-06-tracking-registry-serving/</link>
+      <description>책 9장 후반과 10장을 따라 영화 추천기의 학습·평가·승격 게이트와 BentoML·MLflow·KServe 세 가지 서빙 방식의 동작 원리를 정리합니다</description>
+      <pubDate>Sun, 22 Nov 2026 00:00:00 GMT</pubDate>
+      <guid>https://beengineer500.github.io/posts/2026/mlops-06-tracking-registry-serving/</guid>
+    </item>
+    <item>
       <title>MLOps 5편. 실습 - 데이터 준비 파이프라인, YOLO 학습·검증 게이트, PVC</title>
       <link>https://beengineer500.github.io/posts/2026/mlops-05-data-prep-yolo-pvc-lab/</link>
       <description>홈서버 k3s의 멀티유저 Kubeflow에서 책 7.3~9.1장을 다시 돌리며 만난 권한 제한과 버전 차이를 실측값으로 정리합니다</description>
