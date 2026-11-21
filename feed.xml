@@ -8,7 +8,7 @@
       <title>MLOps 6편. 학습 추적부터 모델 서빙까지 - TensorBoard·MLflow 레지스트리·BentoML·KServe</title>
       <link>https://beengineer500.github.io/posts/2026/mlops-06-tracking-registry-serving/</link>
       <description>책 9장 후반과 10장을 따라 영화 추천기의 학습·평가·승격 게이트와 BentoML·MLflow·KServe 세 가지 서빙 방식의 동작 원리를 정리합니다</description>
-      <pubDate>Sun, 22 Nov 2026 00:00:00 GMT</pubDate>
+      <pubDate>Sat, 21 Nov 2026 00:00:00 GMT</pubDate>
       <guid>https://beengineer500.github.io/posts/2026/mlops-06-tracking-registry-serving/</guid>
     </item>
     <item>

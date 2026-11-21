@@ -1,7 +1,7 @@
 ---
 title: MLOps 6편. 학습 추적부터 모델 서빙까지 - TensorBoard·MLflow 레지스트리·BentoML·KServe
 description: 책 9장 후반과 10장을 따라 영화 추천기의 학습·평가·승격 게이트와 BentoML·MLflow·KServe 세 가지 서빙 방식의 동작 원리를 정리합니다
-date: 2026-11-22
+date: 2026-11-21
 category: mlops
 tags: mlops, tensorboard, mlflow, model-registry, recommender-system, bentoml, kserve
 ---
